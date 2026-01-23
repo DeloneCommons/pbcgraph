@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pbcgraph"
+description = "Translation-labeled periodic graphs on Z^d with exact component lattice invariants."
+readme = "README.md"
+dynamic = ["version"]
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Ivan Yu. Chernyshov", email = "ivan.chernyshoff@gmail.com" }
+]
+keywords = [
+  "periodic graphs",
+  "crystallography",
+  "lattice",
+  "graph theory",
+  "networkx",
+  "topology",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+  "networkx>=3.2",
+  "numpy>=1.23",
+  "sympy>=1.12",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "flake8>=7.0",
+]
+docs = [
+  "mkdocs>=1.6",
+  "mkdocs-material>=9.5",
+  "mkdocs-jupyter>=0.21",
+  "mkdocstrings[python]>=0.26",
+  "mkdocs-autorefs>=1.0",
+  "griffe>=0.47",
+  "pymdown-extensions>=10.0",
+  "ruff>=0.6",
+  "jupyter>=1.0",
+  "nbformat>=5.9",
+  "ipykernel>=6.29",
+]
+
+[project.urls]
+Homepage = "https://github.com/IvanChernyshov/pbcgraph"
+Documentation = "https://IvanChernyshov.github.io/pbcgraph"
+Repository = "https://github.com/IvanChernyshov/pbcgraph"
+Issues = "https://github.com/IvanChernyshov/pbcgraph/issues"
+
+[tool.hatch.version]
+path = "src/pbcgraph/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pbcgraph"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

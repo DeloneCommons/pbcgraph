@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="220" viewBox="0 0 640 220" role="img" aria-label="PeriodicMultiGraph schematic">
+  <!-- Nodes -->
+  <circle cx="180" cy="110" r="28" fill="none" stroke="#000" stroke-width="2" />
+  <circle cx="460" cy="110" r="28" fill="none" stroke="#000" stroke-width="2" />
+  <text x="180" y="116" text-anchor="middle" font-family="sans-serif" font-size="18">A</text>
+  <text x="460" y="116" text-anchor="middle" font-family="sans-serif" font-size="18">B</text>
+
+  <!-- Two parallel edges with the same tvec but different keys -->
+  <path d="M 208 98 C 280 50, 360 50, 432 98" fill="none" stroke="#000" stroke-width="2" />
+  <path d="M 208 122 C 280 170, 360 170, 432 122" fill="none" stroke="#000" stroke-width="2" />
+
+  <text x="320" y="38" text-anchor="middle" font-family="sans-serif" font-size="16">tvec = (0, 0)</text>
+  <text x="320" y="62" text-anchor="middle" font-family="sans-serif" font-size="12">edge key k = 0</text>
+  <text x="320" y="188" text-anchor="middle" font-family="sans-serif" font-size="12">edge key k = 1</text>
+
+  <text x="320" y="214" text-anchor="middle" font-family="sans-serif" font-size="12">Same (u, v, tvec), distinct edges via keys</text>
+</svg>

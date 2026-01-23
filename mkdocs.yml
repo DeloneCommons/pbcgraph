@@ -1,0 +1,67 @@
+site_name: pbcgraph
+site_description: Translation-labeled periodic graphs on Z^d with component lattice invariants.
+site_url: https://IvanChernyshov.github.io/pbcgraph/
+repo_url: https://github.com/IvanChernyshov/pbcgraph
+repo_name: IvanChernyshov/pbcgraph
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.highlight
+  # Make list rendering closer to what users expect from CommonMark/GitHub.
+  - sane_lists
+  # Math rendering (MathJax)
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+  - mkdocs-jupyter:
+      execute: true
+      allow_errors: false
+      include_source: true
+      kernel_name: python3
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_root_heading: true
+            show_source: false
+            show_signature_annotations: true
+            separate_signature: true
+            members_order: source
+
+nav:
+  - General:
+      - Overview: index.md
+      - Concepts: general/concepts.md
+      - Theory: general/theory.md
+      - Choosing a container: general/graph_types.md
+      - Roadmap: general/roadmap.md
+  - Examples:
+      - Quickstart: examples/quickstart.ipynb
+      - SNF and interpenetration: examples/snf_interpenetration.ipynb
+  - API:
+      - Reference: api/index.md
+      - Graphs: api/graphs.md
+      - Components: api/component.md
+      - Algorithms: api/algorithms.md
+      - Types: api/types.md
+      - Exceptions: api/exceptions.md
