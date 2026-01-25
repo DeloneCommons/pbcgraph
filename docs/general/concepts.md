@@ -54,7 +54,18 @@ In all cases, edges are addressed by `(u, v, key)`.
 Edge keys must be Python integers (bool is rejected).
 
 - If you do not provide a key, pbcgraph generates a deterministic fresh integer key.
-- A `key` is shared between the two realizations of an undirected edge in `PeriodicGraph` / `PeriodicMultiGraph`.
+- A *base key* is shared between the two realizations of an undirected edge in `PeriodicGraph` / `PeriodicMultiGraph`.
+
+
+
+#### Internal representation for self-loops
+
+A crystallographically common pattern is a *quotient self-loop* with non-zero translation (\`u == v\`, \`tvec != 0\`), representing a bond to a periodic image.
+
+NetworkX identifies edges by \`(u, v, key)\`, so the two directed realizations of such an undirected edge would collide if they shared the same key.
+
+To support this, pbcgraph stores undirected realizations using private internal keys derived from the base key (a pair \`_UKey(base, +1)\` / \`_UKey(base, -1)\`). The public API always exposes only the base key (an int).
+
 
 ## Attributes and version counters
 

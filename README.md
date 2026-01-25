@@ -55,6 +55,11 @@ G = PeriodicGraph(dim=2)
 
 # Undirected edges are stored internally as two directed realizations
 # with tvec and -tvec.
+
+# Self-loop periodic edges are supported (quotient bond to a periodic image):
+G1 = PeriodicGraph(dim=1)
+G1.add_edge('A', 'A', tvec=(1,))
+
 G.add_edge('A', 'B', tvec=(0, 0))
 G.add_edge('B', 'C', tvec=(0, 0))
 G.add_edge('C', 'A', tvec=(1, 0))  # closes a periodic cycle (rank-1 along x)

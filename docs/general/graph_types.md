@@ -38,6 +38,7 @@ Notes:
   read-only live views of that mapping (update via `set_edge_attrs()`).
 - Edge identity includes the translation vector: two edges between the same pair of nodes are allowed
   if their `tvec` differ.
+- Self-loop periodic edges are supported: a quotient edge with `u == v` and `tvec != 0` represents a bond to a periodic image. Internally this uses private keys derived from the base key, but the public API still exposes only integer base keys.
 
 ## `PeriodicMultiGraph`
 
