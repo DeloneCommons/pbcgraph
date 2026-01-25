@@ -25,8 +25,11 @@ def components(G: PeriodicDiGraphLike) -> List[PeriodicComponent]:
         G: A periodic graph container (structural protocol).
 
     Returns:
-        List of PeriodicComponent objects, ordered by first-seen node in
-        insertion order.
+        List of PeriodicComponent objects in deterministic order.
+
+        The order follows the graph's deterministic node iteration
+        (`G.nodes(...)`), so the first component is the one containing the
+        smallest node under the container's stable ordering.
     """
     visited: Set[NodeId] = set()
     out: List[PeriodicComponent] = []

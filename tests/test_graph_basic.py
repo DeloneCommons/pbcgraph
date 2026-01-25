@@ -52,6 +52,22 @@ def test_set_node_attrs_increments_data_version():
     assert G.get_node_data('A')['foo'] == 1
 
 
+def test_add_node_with_attrs_data_version_semantics():
+    G = PeriodicDiGraph(dim=1)
+    sv0 = G.structural_version
+    dv0 = G.data_version
+
+    G.add_node('A', foo=1)
+    assert G.structural_version == sv0 + 1
+    assert G.data_version == dv0
+    assert G.get_node_data('A')['foo'] == 1
+
+    G.add_node('A', bar=2)
+    assert G.structural_version == sv0 + 1
+    assert G.data_version == dv0 + 1
+    assert G.get_node_data('A')['bar'] == 2
+
+
 def test_periodicgraph_stores_two_directions_and_shared_attrs():
     G = PeriodicGraph(dim=2)
     k = G.add_edge('A', 'B', (1, -1), kind='contact')

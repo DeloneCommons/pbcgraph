@@ -23,12 +23,13 @@ from typing import (
 )
 
 from pbcgraph.core.exceptions import StaleComponentError
+from pbcgraph.core.ordering import fallback_key
 from pbcgraph.core.types import (
     NodeId,
     NodeInst,
     TVec,
     add_tvec,
-    # neg_tvec,
+    neg_tvec,
     sub_tvec,
     zero_tvec,
 )
@@ -300,10 +301,49 @@ class PeriodicComponent:
 
     def _compute_generators(self, pot: Dict[NodeId, TVec]) -> List[TVec]:
         gens: List[TVec] = []
+
+        if not self.graph.is_undirected:
+            for u, v, t, _k in self.graph.edges(
+                keys=True, data=False, tvec=True
+            ):
+                if u not in self.nodes or v not in self.nodes:
+                    continue
+                g = sub_tvec(add_tvec(pot[u], t), pot[v])
+                if _tvec_is_zero(g):
+                    continue
+                gens.append(g)
+            return gens
+
+        def _node_leq(a: NodeId, b: NodeId) -> bool:
+            try:
+                return a <= b  # type: ignore[operator]
+            except TypeError:
+                return fallback_key(a) <= fallback_key(b)
+
+        seen = set()
         for u, v, t, k in self.graph.edges(keys=True, data=False, tvec=True):
             if u not in self.nodes or v not in self.nodes:
                 continue
-            g = sub_tvec(add_tvec(pot[u], t), pot[v])
+
+            tv = tuple(int(x) for x in t)
+            if u == v:
+                tv_abs = min(tv, neg_tvec(tv))
+                ident = (u, u, tv_abs, int(k))
+                if ident in seen:
+                    continue
+                seen.add(ident)
+                g = tv_abs
+            else:
+                if _node_leq(u, v):
+                    a, b, tv_use = u, v, tv
+                else:
+                    a, b, tv_use = v, u, neg_tvec(tv)
+                ident = (a, b, tv_use, int(k))
+                if ident in seen:
+                    continue
+                seen.add(ident)
+                g = sub_tvec(add_tvec(pot[a], tv_use), pot[b])
+
             if _tvec_is_zero(g):
                 continue
             gens.append(g)

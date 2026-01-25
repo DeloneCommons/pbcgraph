@@ -25,6 +25,17 @@ This project follows a lightweight "keep a log" style.
 - **Lattice/SNF**
     - Removed the SymPy dependency by implementing exact inversion of unimodular matrices.
 
+- **Version semantics**
+    - Pure data-only `data_version` semantics: `data_version` increments only on user-attribute updates that do not change structure (e.g., `set_node_attrs`, `set_edge_attrs`, or `add_node` on an existing node).
+    - Creating new nodes/edges with attributes does not increment `data_version` (structural change only).
+
+- **Docs clarifications**
+    - Clarified that component extraction and weak-neighbor helpers rely on deterministic (stable-sorted) iteration, not insertion order.
+    - Documented an edge-iteration gotcha for self-loop periodic edges: use `tvec=True` with `keys=True` to disambiguate paired realizations.
+    - Corrected `SNFDecomposition.diag` documentation (returned length is `rank`).
+
+- **Performance**
+    - Reduced redundant generator collection for undirected components by deduplicating paired directed realizations (no semantic change).
 
 ## 0.1.0 — Initial release
 

@@ -142,7 +142,7 @@ class PeriodicDiGraph:
         structural_version: Incremented when the quotient structure changes
             (nodes/edges added or removed).
         data_version: Incremented when user data changes without structural
-            changes (edge attribute updates).
+            changes (node/edge attribute updates).
 
     Notes:
         - Quotient nodes are `NodeId` values.
@@ -194,8 +194,10 @@ class PeriodicDiGraph:
 
         Notes:
             - Increments `structural_version` if the node is new.
-            - If the node already exists, this only updates attributes
-              and increments `data_version` if any attributes are provided.
+            - If the node already exists and `attrs` are provided,
+              this updates attributes and increments `data_version`.
+            - If the node is new, attributes provided at creation do not
+              increment `data_version` (pure structural change semantics).
         """
         exists = self._g.has_node(u)
         if not exists:
@@ -203,7 +205,8 @@ class PeriodicDiGraph:
             self.structural_version += 1
         if attrs:
             self._g.nodes[u].update(attrs)
-            self.data_version += 1
+            if exists:
+                self.data_version += 1
 
     def remove_node(self, u: NodeId) -> None:
         """Remove a quotient node and all incident edges.
@@ -809,6 +812,24 @@ class PeriodicGraph(PeriodicDiGraph):
         """Whether this container should be treated as undirected
         by algorithms."""
         return True
+
+    def edges(
+        self, keys: bool = False, data: bool = False, tvec: bool = False
+    ) -> Iterable:
+        """Iterate directed realizations in deterministic order.
+
+        This iterator yields *directed realizations* of undirected edges.
+
+        Note:
+            For self-loop periodic edges (``u == v`` and ``tvec != 0``), the
+            two directed realizations share the same ``(u, v, key)`` triple and
+            differ only by the translation vector. If `keys=True` but
+            `tvec=False`, this may yield duplicate ``(u, u, key)`` records. Use
+            `tvec=True` to disambiguate.
+
+        See `PeriodicDiGraph.edges` for the record formats.
+        """
+        return super().edges(keys=keys, data=data, tvec=tvec)
 
     def _internal_keys_for_base(
         self, u: NodeId, v: NodeId, key: EdgeKey

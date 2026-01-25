@@ -287,7 +287,9 @@ class SNFDecomposition:
     Attributes:
         dim: Ambient lattice dimension `d`.
         rank: Rank of the sublattice `L` (number of non-zero diagonal entries).
-        diag: Full SNF diagonal (length `dim`), including 0 and 1 entries.
+        diag: Tuple of length `rank` with the (non-zero) SNF diagonal
+            entries (invariant factors). Empty tuple if there are no
+            generators.
         U: Unimodular change-of-basis matrix (left transform).
         U_inv: Inverse of `U` over the integers.
     """
