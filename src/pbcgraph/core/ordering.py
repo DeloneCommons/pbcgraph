@@ -21,7 +21,9 @@ For best cross-process determinism, prefer primitive node ids (``int``,
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, List, Sequence, Tuple, TypeVar
+from typing import (
+    Any, Iterable, List, Sequence, Tuple, TypeVar,
+)
 
 
 T = TypeVar('T')
@@ -65,7 +67,9 @@ def try_sort_edges(
     try:
         records.sort(key=lambda r: (r[0], r[1], r[2], r[3]))
     except TypeError:
-        records.sort(key=lambda r: (fallback_key(r[0]), fallback_key(r[1]), r[2], r[3]))
+        records.sort(
+            key=lambda r: (fallback_key(r[0]), fallback_key(r[1]), r[2], r[3])
+        )
 
 
 def try_sort_neighbor_edges(

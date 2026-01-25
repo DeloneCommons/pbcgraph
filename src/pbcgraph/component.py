@@ -28,7 +28,7 @@ from pbcgraph.core.types import (
     NodeInst,
     TVec,
     add_tvec,
-    neg_tvec,
+    # neg_tvec,
     sub_tvec,
     zero_tvec,
 )

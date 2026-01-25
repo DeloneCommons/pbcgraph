@@ -52,7 +52,7 @@ from pbcgraph.alg.components import components as _components
 from pbcgraph.core.ordering import (
     stable_sorted,
     stable_tvec,
-    stable_unique_sorted,
+    # stable_unique_sorted,
     try_sort_edges,
     try_sort_neighbor_edges,
 )
@@ -291,7 +291,7 @@ class PeriodicDiGraph:
         """
         kd_uv = self._g.get_edge_data(u, v) or {}
         kd_vu = self._g.get_edge_data(v, u) or {}
-        used = { _base_key(k) for k in kd_uv } | { _base_key(k) for k in kd_vu }
+        used = {_base_key(k) for k in kd_uv} | {_base_key(k) for k in kd_vu}
         if not used:
             return 0
         k = len(used)
@@ -483,7 +483,11 @@ class PeriodicDiGraph:
         records: List[Tuple[Any, Any, Tuple[int, ...], int, Any]] = []
         for u, v, k, edata in self._g.edges(keys=True, data=True):
             records.append(
-                (u, v, stable_tvec(edata[_TVEC_ATTR]), _base_key(k), edata[_USER_ATTRS])
+                (
+                    u, v,
+                    stable_tvec(edata[_TVEC_ATTR]),
+                    _base_key(k), edata[_USER_ATTRS]
+                )
             )
 
         try_sort_edges(records)
@@ -539,7 +543,10 @@ class PeriodicDiGraph:
             for k in kd:
                 ed = kd[k]
                 records.append(
-                    (v, stable_tvec(ed[_TVEC_ATTR]), _base_key(k), ed[_USER_ATTRS])
+                    (
+                        v, stable_tvec(ed[_TVEC_ATTR]),
+                        _base_key(k), ed[_USER_ATTRS]
+                    )
                 )
 
         try_sort_neighbor_edges(records)
@@ -583,7 +590,10 @@ class PeriodicDiGraph:
             for k in kd:
                 ed = kd[k]
                 records.append(
-                    (v, stable_tvec(ed[_TVEC_ATTR]), _base_key(k), ed[_USER_ATTRS])
+                    (
+                        v, stable_tvec(ed[_TVEC_ATTR]),
+                        _base_key(k), ed[_USER_ATTRS]
+                    )
                 )
 
         try_sort_neighbor_edges(records)
@@ -800,8 +810,11 @@ class PeriodicGraph(PeriodicDiGraph):
         by algorithms."""
         return True
 
-    def _internal_keys_for_base(self, u: NodeId, v: NodeId, key: EdgeKey) -> List[object]:
-        """Return internal keys on (u -> v) whose public base key equals `key`."""
+    def _internal_keys_for_base(
+        self, u: NodeId, v: NodeId, key: EdgeKey
+    ) -> List[object]:
+        """Return internal keys on (u -> v) whose public base key
+        equals `key`."""
         kd = self._g.get_edge_data(u, v) or {}
         out: List[object] = []
         for ik in kd:
@@ -813,8 +826,11 @@ class PeriodicGraph(PeriodicDiGraph):
                     out.append(ik)
         return out
 
-    def _choose_internal_key(self, u: NodeId, v: NodeId, key: EdgeKey) -> object:
-        """Choose a deterministic internal key for accessing shared attrs/tvec."""
+    def _choose_internal_key(
+        self, u: NodeId, v: NodeId, key: EdgeKey
+    ) -> object:
+        """Choose a deterministic internal key for accessing
+        shared attrs/tvec."""
         keys = self._internal_keys_for_base(u, v, key)
         if not keys:
             raise KeyError((u, v, key))
@@ -833,7 +849,8 @@ class PeriodicGraph(PeriodicDiGraph):
         )[0]
 
     def _has_undirected_base(self, u: NodeId, v: NodeId, key: EdgeKey) -> bool:
-        """Return True if an undirected edge with base key exists between u and v."""
+        """Return True if an undirected edge with base key exists
+        between u and v."""
         if u != v:
             return (
                 len(self._internal_keys_for_base(u, v, key)) == 1 and
@@ -887,7 +904,10 @@ class PeriodicGraph(PeriodicDiGraph):
             _validate_edge_key(key)
 
         # Disallow overwriting an existing base key in either direction.
-        if self._internal_keys_for_base(u, v, key) or self._internal_keys_for_base(v, u, key):
+        if (
+            self._internal_keys_for_base(u, v, key)
+            or self._internal_keys_for_base(v, u, key)
+        ):
             raise KeyError((u, v, key))
 
         tvec_norm = stable_tvec(tvec)

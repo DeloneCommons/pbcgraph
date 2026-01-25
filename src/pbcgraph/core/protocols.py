@@ -1,6 +1,7 @@
 """Structural protocols for algorithm modules.
 
-Algorithms in :mod:`pbcgraph.alg` and :class:`~pbcgraph.component.PeriodicComponent`
+Algorithms in :mod:`pbcgraph.alg` and
+:class:`~pbcgraph.component.PeriodicComponent`
 operate on a narrow "graph-like" surface. This keeps algorithms independent
 from the underlying NetworkX backend.
 
@@ -9,7 +10,7 @@ These protocols are intentionally minimal and may grow between versions.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Protocol, Tuple
+from typing import Iterable, Protocol
 
 from pbcgraph.core.types import EdgeKey, NodeId, TVec
 
@@ -36,7 +37,9 @@ class PeriodicDiGraphLike(Protocol):
         ...
 
     # Directed edge access
-    def neighbors(self, u: NodeId, keys: bool = False, data: bool = False) -> Iterable:
+    def neighbors(
+        self, u: NodeId, keys: bool = False, data: bool = False
+    ) -> Iterable:
         ...
 
     def in_neighbors(

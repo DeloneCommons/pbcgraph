@@ -31,7 +31,8 @@ def zero_tvec(dim: int) -> TVec:
 
 
 def validate_tvec(tvec: Any, dim: int) -> None:
-    """Validate that `tvec` is an integer translation vector of dimension `dim`.
+    """Validate that `tvec` is an integer translation vector
+    of dimension `dim`.
 
     Accepts:
         - tuples/lists of integer-likes,

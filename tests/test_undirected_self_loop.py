@@ -33,7 +33,6 @@ def test_periodicgraph_supports_self_loop_periodic_edge():
     assert ('A', (1,), k) in nbs
     assert ('A', (-1,), k) in nbs
 
-
     comp = G.components()[0]
     assert comp.rank == 1
 
