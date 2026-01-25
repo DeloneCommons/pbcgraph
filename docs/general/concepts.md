@@ -32,7 +32,10 @@ This gives you a precise infinite graph semantics without materializing the infi
     - `u -> v` with translation `tvec`
     - `v -> u` with translation `-tvec`
 
-Both realizations share a single live attribute mapping.
+Both realizations share the same underlying user-attributes dict.
+
+Note that `get_edge_data()` returns a **read-only live view** of that mapping
+(so updating attributes must be done via `set_edge_attrs()`).
 
 ### Important invariant (PeriodicGraph)
 
@@ -47,9 +50,8 @@ pbcgraph distinguishes two container families:
   Here, the translation vector is treated as part of the edge identity.
 - `PeriodicMultiDiGraph` / `PeriodicMultiGraph`: allow multiple edges per `(u, v, tvec)`.
 
-In all cases, edges are addressed by `(u, v, key)`. Edge keys are intended to be integers.
-If you explicitly provide a non-integer hashable key, it will be forwarded to the underlying NetworkX graph,
-but pbcgraph only guarantees deterministic key generation and ordering for integer keys.
+In all cases, edges are addressed by `(u, v, key)`.
+Edge keys must be Python integers (bool is rejected).
 
 - If you do not provide a key, pbcgraph generates a deterministic fresh integer key.
 - A `key` is shared between the two realizations of an undirected edge in `PeriodicGraph` / `PeriodicMultiGraph`.
@@ -61,8 +63,8 @@ pbcgraph tracks two counters:
 - `structural_version`: increments on node/edge add/remove.
 - `data_version`: increments on attribute updates *performed via pbcgraph APIs*.
 
-`get_node_data()` / `get_edge_data()` return the underlying mutable mapping.
-Direct mutation of that mapping is allowed but may not update `data_version` (treat as undefined behavior).
+`get_node_data()` / `get_edge_data()` return a read-only live view of the underlying mapping.
+Direct mutation is not allowed; use `set_node_attrs()` / `set_edge_attrs()`.
 
 ## Components, rank, and torsion
 

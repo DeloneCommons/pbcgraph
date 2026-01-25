@@ -34,7 +34,8 @@ Typical examples:
 Notes:
 
 - `PeriodicGraph` is implemented as two directed realizations (`u -> v` with `tvec` and `v -> u` with `-tvec`)
-  that share one live attributes mapping.
+  that share the same underlying user-attributes dict. The public API returns
+  read-only live views of that mapping (update via `set_edge_attrs()`).
 - Edge identity includes the translation vector: two edges between the same pair of nodes are allowed
   if their `tvec` differ.
 

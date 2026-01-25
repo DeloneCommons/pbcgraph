@@ -1,3 +1,7 @@
+from collections.abc import Mapping
+
+import pytest
+
 from pbcgraph import PeriodicDiGraph
 
 
@@ -15,6 +19,9 @@ def test_neighbors_inst_lifts_translations():
     assert ('C', (5, 4), k2) in out_k
 
     out_d = list(G.neighbors_inst(('A', (5, 5)), keys=False, data=True))
-    # attrs are live dicts
+    # attrs are read-only live views
     for v, s2, attrs in out_d:
-        assert isinstance(attrs, dict)
+        assert isinstance(attrs, Mapping)
+        assert 'kind' in attrs
+        with pytest.raises(TypeError):
+            attrs['x'] = 1

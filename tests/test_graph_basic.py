@@ -1,6 +1,6 @@
 import pytest
 
-from pbcgraph import PeriodicDiGraph, PeriodicGraph
+from pbcgraph import PeriodicDiGraph, PeriodicGraph, PeriodicMultiDiGraph
 
 
 def test_add_edge_autocreates_nodes_and_stores_tvec():
@@ -64,7 +64,18 @@ def test_periodicgraph_stores_two_directions_and_shared_attrs():
 
     attrs_ab = G.get_edge_data('A', 'B', k)
     attrs_ba = G.get_edge_data('B', 'A', k)
-    assert attrs_ab is attrs_ba
+    assert dict(attrs_ab) == dict(attrs_ba)
+    assert attrs_ab is not attrs_ba
+
+    # Returned mappings are read-only views.
+    with pytest.raises(TypeError):
+        attrs_ab['x'] = 1
+
+    # Updates propagate because paired realizations share the same
+    # underlying user-attrs dict.
+    G.set_edge_attrs('A', 'B', k, foo=1)
+    assert G.get_edge_data('B', 'A', k)['foo'] == 1
+    assert G.check_invariants()['ok'] is True
     assert attrs_ab['kind'] == 'contact'
 
     G.set_edge_attrs('A', 'B', k, strength=5)
@@ -73,3 +84,9 @@ def test_periodicgraph_stores_two_directions_and_shared_attrs():
     G.remove_edge('A', 'B', k)
     assert not G.has_edge('A', 'B', key=k)
     assert not G.has_edge('B', 'A', key=k)
+
+
+def test_edge_key_rejects_bool():
+    G = PeriodicMultiDiGraph(dim=1)
+    with pytest.raises(TypeError):
+        G.add_edge('A', 'B', (0,), key=True)

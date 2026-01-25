@@ -15,9 +15,8 @@ Implementation notes:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Iterable, List, Sequence, Tuple
-
-import sympy as sp
 
 from pbcgraph.core.types import TVec, validate_tvec
 
@@ -317,6 +316,57 @@ def _to_tuple_matrix(A: List[List[int]]) -> Tuple[Tuple[int, ...], ...]:
     return tuple(tuple(int(v) for v in row) for row in A)
 
 
+def _invert_unimodular_int_matrix(U: List[List[int]]) -> List[List[int]]:
+    """Invert a unimodular integer matrix exactly.
+
+    The input matrix is assumed to have determinant +/-1, so the inverse is
+    an integer matrix.
+    """
+    n = len(U)
+    if any(len(row) != n for row in U):
+        raise ValueError('matrix must be square')
+
+    # Augment with identity and perform Gauss-Jordan elimination over Q.
+    A: List[List[Fraction]] = [
+        [Fraction(int(U[i][j])) for j in range(n)]
+        + [Fraction(1 if i == j else 0) for j in range(n)]
+        for i in range(n)
+    ]
+
+    for col in range(n):
+        pivot = None
+        for r in range(col, n):
+            if A[r][col] != 0:
+                pivot = r
+                break
+        if pivot is None:
+            raise ValueError('matrix is singular')
+        if pivot != col:
+            A[col], A[pivot] = A[pivot], A[col]
+
+        piv = A[col][col]
+        A[col] = [x / piv for x in A[col]]
+
+        for r in range(n):
+            if r == col:
+                continue
+            factor = A[r][col]
+            if factor == 0:
+                continue
+            A[r] = [x - factor * y for x, y in zip(A[r], A[col])]
+
+    inv: List[List[int]] = []
+    for i in range(n):
+        row_int: List[int] = []
+        for j in range(n, 2 * n):
+            f = A[i][j]
+            if f.denominator != 1:
+                raise ValueError('unimodular inverse is not integral')
+            row_int.append(int(f.numerator))
+        inv.append(row_int)
+    return inv
+
+
 def snf_decomposition(
     generators: Sequence[TVec], dim: int
 ) -> SNFDecomposition:
@@ -361,10 +411,8 @@ def snf_decomposition(
         r += 1
         diag.append(abs(di))
 
-    # Compute inverse of U using SymPy (det is +/-1 so inverse is integer).
-    U_mat = sp.Matrix(U)
-    U_inv_mat = U_mat.inv()
-    U_inv = [[int(U_inv_mat[i, j]) for j in range(dim)] for i in range(dim)]
+    # U is unimodular (det = +/-1), so its inverse is integral.
+    U_inv = _invert_unimodular_int_matrix(U)
 
     return SNFDecomposition(
         dim=dim,

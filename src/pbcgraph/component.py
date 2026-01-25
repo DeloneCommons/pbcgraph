@@ -266,9 +266,6 @@ class PeriodicComponent:
         pot: Dict[NodeId, TVec] = {self.root: zero_tvec(dim)}
         q = deque([self.root])
 
-        # Access internal MultiDiGraph for incoming-edge data.
-        gnx = getattr(self.graph, '_g')
-
         while q:
             u = q.popleft()
             pu = pot[u]
@@ -283,20 +280,15 @@ class PeriodicComponent:
                 q.append(v)
 
             # Incoming edges next (weak traversal).
-            pred_adj = gnx.pred[u]
-            for v in pred_adj:
+            for v, t_in, _k in self.graph.in_neighbors(
+                u, keys=True, data=False
+            ):
                 if v not in self.nodes:
                     continue
-                kd = pred_adj[v]
-                for k in kd:
-                    if v in pot:
-                        break
-                    ed = kd[k]
-                    t_in = tuple(ed['_tvec'])
-                    pot[v] = add_tvec(pu, neg_tvec(t_in))
-                    q.append(v)
-                # If v was added via some incoming edge,
-                # stop scanning keys for v.
+                if v in pot:
+                    continue
+                pot[v] = sub_tvec(pu, t_in)
+                q.append(v)
         if len(pot) != len(self.nodes):
             # This should never happen if component extraction is correct.
             missing = [u for u in self.nodes if u not in pot]
@@ -308,10 +300,9 @@ class PeriodicComponent:
 
     def _compute_generators(self, pot: Dict[NodeId, TVec]) -> List[TVec]:
         gens: List[TVec] = []
-        for u, v, k in self.graph.edges(keys=True, data=False):
+        for u, v, t, k in self.graph.edges(keys=True, data=False, tvec=True):
             if u not in self.nodes or v not in self.nodes:
                 continue
-            t = self.graph.edge_tvec(u, v, k)
             g = sub_tvec(add_tvec(pot[u], t), pot[v])
             if _tvec_is_zero(g):
                 continue
