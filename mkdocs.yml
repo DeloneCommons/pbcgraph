@@ -24,6 +24,8 @@ markdown_extensions:
   # Math rendering (MathJax)
   - pymdownx.arithmatex:
       generic: true
+  - pymdownx.snippets:
+      check_paths: true
 
 extra_javascript:
   - javascripts/mathjax.js
@@ -65,3 +67,4 @@ nav:
       - Algorithms: api/algorithms.md
       - Types: api/types.md
       - Exceptions: api/exceptions.md
+  - Changelog: changelog.md

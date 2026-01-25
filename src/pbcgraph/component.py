@@ -23,6 +23,7 @@ from typing import (
 )
 
 from pbcgraph.core.exceptions import StaleComponentError
+from pbcgraph.core.ordering import fallback_key
 from pbcgraph.core.types import (
     NodeId,
     NodeInst,
@@ -266,9 +267,6 @@ class PeriodicComponent:
         pot: Dict[NodeId, TVec] = {self.root: zero_tvec(dim)}
         q = deque([self.root])
 
-        # Access internal MultiDiGraph for incoming-edge data.
-        gnx = getattr(self.graph, '_g')
-
         while q:
             u = q.popleft()
             pu = pot[u]
@@ -283,20 +281,15 @@ class PeriodicComponent:
                 q.append(v)
 
             # Incoming edges next (weak traversal).
-            pred_adj = gnx.pred[u]
-            for v in pred_adj:
+            for v, t_in, _k in self.graph.in_neighbors(
+                u, keys=True, data=False
+            ):
                 if v not in self.nodes:
                     continue
-                kd = pred_adj[v]
-                for k in kd:
-                    if v in pot:
-                        break
-                    ed = kd[k]
-                    t_in = tuple(ed['_tvec'])
-                    pot[v] = add_tvec(pu, neg_tvec(t_in))
-                    q.append(v)
-                # If v was added via some incoming edge,
-                # stop scanning keys for v.
+                if v in pot:
+                    continue
+                pot[v] = sub_tvec(pu, t_in)
+                q.append(v)
         if len(pot) != len(self.nodes):
             # This should never happen if component extraction is correct.
             missing = [u for u in self.nodes if u not in pot]
@@ -308,11 +301,49 @@ class PeriodicComponent:
 
     def _compute_generators(self, pot: Dict[NodeId, TVec]) -> List[TVec]:
         gens: List[TVec] = []
-        for u, v, k in self.graph.edges(keys=True, data=False):
+
+        if not self.graph.is_undirected:
+            for u, v, t, _k in self.graph.edges(
+                keys=True, data=False, tvec=True
+            ):
+                if u not in self.nodes or v not in self.nodes:
+                    continue
+                g = sub_tvec(add_tvec(pot[u], t), pot[v])
+                if _tvec_is_zero(g):
+                    continue
+                gens.append(g)
+            return gens
+
+        def _node_leq(a: NodeId, b: NodeId) -> bool:
+            try:
+                return a <= b  # type: ignore[operator]
+            except TypeError:
+                return fallback_key(a) <= fallback_key(b)
+
+        seen = set()
+        for u, v, t, k in self.graph.edges(keys=True, data=False, tvec=True):
             if u not in self.nodes or v not in self.nodes:
                 continue
-            t = self.graph.edge_tvec(u, v, k)
-            g = sub_tvec(add_tvec(pot[u], t), pot[v])
+
+            tv = tuple(int(x) for x in t)
+            if u == v:
+                tv_abs = min(tv, neg_tvec(tv))
+                ident = (u, u, tv_abs, int(k))
+                if ident in seen:
+                    continue
+                seen.add(ident)
+                g = tv_abs
+            else:
+                if _node_leq(u, v):
+                    a, b, tv_use = u, v, tv
+                else:
+                    a, b, tv_use = v, u, neg_tvec(tv)
+                ident = (a, b, tv_use, int(k))
+                if ident in seen:
+                    continue
+                seen.add(ident)
+                g = sub_tvec(add_tvec(pot[a], tv_use), pot[b])
+
             if _tvec_is_zero(g):
                 continue
             gens.append(g)

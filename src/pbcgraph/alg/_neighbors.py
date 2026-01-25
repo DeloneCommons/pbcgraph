@@ -33,8 +33,9 @@ def weak_neighbors(G: _SupportsPredSucc, u: NodeId) -> List[NodeId]:
     The weak neighborhood treats the directed quotient graph as undirected.
     Order is deterministic:
 
-    1) successors in insertion order,
-    2) then predecessors in insertion order (excluding nodes already yielded).
+    1) successors in deterministic order as provided by `G.successors(u)`,
+    2) then predecessors in deterministic order as provided by
+       `G.predecessors(u)` (excluding nodes already yielded).
 
     Args:
         G: A graph providing `successors(u)` and `predecessors(u)`.

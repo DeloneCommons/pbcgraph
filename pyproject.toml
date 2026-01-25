@@ -35,7 +35,6 @@ classifiers = [
 dependencies = [
   "networkx>=3.2",
   "numpy>=1.23",
-  "sympy>=1.12",
 ]
 
 [project.optional-dependencies]

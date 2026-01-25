@@ -34,9 +34,12 @@ Typical examples:
 Notes:
 
 - `PeriodicGraph` is implemented as two directed realizations (`u -> v` with `tvec` and `v -> u` with `-tvec`)
-  that share one live attributes mapping.
+  that share the same underlying user-attributes dict. The public API returns
+  read-only live views of that mapping (update via `set_edge_attrs()`).
 - Edge identity includes the translation vector: two edges between the same pair of nodes are allowed
   if their `tvec` differ.
+- Self-loop periodic edges are supported: a quotient edge with `u == v` and `tvec != 0` represents a bond to a periodic image. Internally this uses private keys derived from the base key, but the public API still exposes only integer base keys.
+- When iterating edges with `keys=True`, pass `tvec=True` for self-loop periodic edges to distinguish the paired realizations; otherwise `edges(keys=True)` can yield duplicate `(u, u, key)` records.
 
 ## `PeriodicMultiGraph`
 

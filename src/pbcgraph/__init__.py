@@ -39,6 +39,15 @@ Create a 1D periodic chain with one node per cell and a bond to the next cell::
     G.add_node('A')
     G.add_edge('A', 'A', tvec=(1,))   # A(i) -> A(i+1)
     # For an undirected representation, use PeriodicGraph
+
+    # A crystallographically common pattern is a quotient self-loop with
+    # non-zero translation (bond to a periodic image):
+
+    from pbcgraph import PeriodicGraph
+
+    G = PeriodicGraph(dim=1)
+    G.add_edge('A', 'A', (1,), kind='bond')
+
     # (adds both directions).
 
 Algorithms
