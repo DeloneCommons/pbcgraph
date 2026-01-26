@@ -19,8 +19,10 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Hashable,
     Iterator,
     List,
+    Literal,
     Optional,
     Sequence,
     Tuple,
@@ -29,10 +31,18 @@ from typing import (
 
 import networkx as nx
 
-from pbcgraph.core.exceptions import LiftPatchError
+from pbcgraph.core.exceptions import CanonicalLiftError, LiftPatchError
 from pbcgraph.core.ordering import fallback_key, stable_sorted
 from pbcgraph.core.protocols import PeriodicDiGraphLike
-from pbcgraph.core.types import NodeInst, TVec, validate_tvec
+from pbcgraph.core.types import (
+    NodeId,
+    NodeInst,
+    TVec,
+    add_tvec,
+    sub_tvec,
+    zero_tvec,
+    validate_tvec,
+)
 
 
 PatchEdgeRec = Tuple[NodeInst, NodeInst, Dict[str, Any]]
@@ -328,4 +338,218 @@ def lift_patch(
         radius=radius,
         box=eff_box,
         _is_multigraph=bool(G.is_multigraph),
+    )
+
+
+TreeEdgeRec = Tuple[NodeId, NodeId, TVec, int]
+
+
+@dataclass(frozen=True)
+class CanonicalLift:
+    """A deterministic finite representation of a single strand.
+
+    Attributes:
+        nodes: Node instances `(u, shift)` in canonical order. Contains
+            exactly one instance for every quotient node in the component.
+        strand_key: Target strand (coset) key in `Z^d / L`.
+        anchor_site: Quotient node chosen to be placed in `anchor_shift`.
+        anchor_shift: Anchor cell translation vector.
+        placement: Placement mode used to construct the lift.
+        score: Placement score (smaller is better; 0 is best).
+        tree_edges: Optional spanning-tree edge records for debugging.
+    """
+
+    nodes: Tuple[NodeInst, ...]
+    strand_key: Hashable
+    anchor_site: NodeId
+    anchor_shift: TVec
+    placement: str
+    score: Union[int, float]
+    tree_edges: Optional[Tuple[TreeEdgeRec, ...]] = None
+
+
+def _sorted_nodes_by_key(
+    nodes: Sequence[NodeId],
+    node_order: Optional[Callable[[NodeId], Any]],
+) -> Tuple[NodeId, ...]:
+    seq = list(nodes)
+    if not seq:
+        return ()
+
+    if node_order is None:
+        return tuple(stable_sorted(seq))
+
+    def k(u: NodeId) -> Any:
+        return node_order(u)
+
+    try:
+        return tuple(sorted(seq, key=lambda u: (k(u), fallback_key(u))))
+    except TypeError:
+        return tuple(sorted(seq, key=lambda u: (fallback_key(k(u)), fallback_key(u))))
+
+
+def _sorted_node_insts(
+    insts: Sequence[NodeInst],
+    node_order: Optional[Callable[[NodeId], Any]],
+) -> Tuple[NodeInst, ...]:
+    seq = list(insts)
+    if not seq:
+        return ()
+
+    if node_order is None:
+        try:
+            return tuple(sorted(seq, key=lambda x: (x[0], x[1])))
+        except TypeError:
+            return tuple(sorted(seq, key=lambda x: (fallback_key(x[0]), x[1])))
+
+    def k(u: NodeId) -> Any:
+        return node_order(u)
+
+    try:
+        return tuple(sorted(seq, key=lambda x: (k(x[0]), x[1], fallback_key(x[0]))))
+    except TypeError:
+        return tuple(
+            sorted(seq, key=lambda x: (fallback_key(k(x[0])), x[1], fallback_key(x[0])))
+        )
+
+
+def canonical_lift(
+    component: Any,
+    *,
+    strand_key: Optional[Hashable] = None,
+    seed: Optional[NodeInst] = None,
+    anchor_shift: Optional[TVec] = None,
+    placement: Literal['tree', 'best_anchor', 'greedy_cut'] = 'tree',
+    score: Literal['l1', 'l2'] = 'l1',
+    return_tree: bool = False,
+    node_order: Optional[Callable[[NodeId], Any]] = None,
+    edge_order: Optional[Callable[[Tuple[Any, ...]], Any]] = None,
+) -> CanonicalLift:
+    """Construct a deterministic finite representation of one strand.
+
+    v0.1.2 step2 implements `placement='tree'` only.
+
+    Args:
+        component: A :class:`~pbcgraph.component.PeriodicComponent`.
+        strand_key: Optional explicit strand key.
+        seed: Optional seed instance `(u, shift)`.
+        anchor_shift: Optional anchor cell shift.
+        placement: Placement mode (`'tree'` in step2).
+        score: Score metric: `'l1'` or `'l2'`.
+        return_tree: If True, include spanning-tree edge records.
+        node_order: Optional ordering key for quotient node ids.
+        edge_order: Optional ordering key for periodic edges (reserved).
+
+    Returns:
+        A :class:`~pbcgraph.alg.lift.CanonicalLift`.
+
+    Raises:
+        CanonicalLiftError: On invalid inputs or if the requested strand does
+            not intersect the anchor cell.
+    """
+    del edge_order  # Reserved for later placement modes.
+
+    if placement != 'tree':
+        raise CanonicalLiftError(
+            "canonical_lift placement '%s' is not implemented in v0.1.2 step2"
+            % placement
+        )
+
+    dim = int(component.graph.dim)
+
+    if seed is not None:
+        u_seed, s_seed = seed
+        validate_tvec(s_seed, dim)
+    else:
+        u_seed = None
+        s_seed = None
+
+    if anchor_shift is None:
+        if s_seed is not None:
+            anchor_shift = s_seed
+        else:
+            anchor_shift = zero_tvec(dim)
+    else:
+        validate_tvec(anchor_shift, dim)
+
+    if strand_key is None:
+        if seed is not None:
+            try:
+                K = component.inst_key(seed)
+            except KeyError as e:
+                raise CanonicalLiftError('seed does not belong to component') from e
+        else:
+            nodes_sorted = _sorted_nodes_by_key(list(component.nodes), node_order)
+            if not nodes_sorted:
+                raise CanonicalLiftError('component has no nodes')
+            default_seed = (nodes_sorted[0], zero_tvec(dim))
+            K = component.inst_key(default_seed)
+    else:
+        K = strand_key
+
+    eligible: List[NodeId] = []
+    for u in component.nodes:
+        if component.inst_key((u, anchor_shift)) == K:
+            eligible.append(u)
+
+    if not eligible:
+        raise CanonicalLiftError(
+            'requested strand_key does not intersect the anchor cell'
+        )
+
+    anchor_site = _sorted_nodes_by_key(eligible, node_order)[0]
+
+    pot_anchor = component.potential(anchor_site)
+    abs_shift: Dict[NodeId, TVec] = {}
+    rel_shift: Dict[NodeId, TVec] = {}
+
+    for u in component.nodes:
+        rel = sub_tvec(component.potential(u), pot_anchor)
+        rel_shift[u] = rel
+        abs_shift[u] = add_tvec(anchor_shift, rel)
+
+    insts = [(u, abs_shift[u]) for u in component.nodes]
+    insts_sorted = _sorted_node_insts(insts, node_order)
+
+    snf = component._snf
+    if snf is None:
+        raise CanonicalLiftError('component has no SNF decomposition')
+
+    r = int(snf.rank)
+    if score not in ('l1', 'l2'):
+        raise CanonicalLiftError("score must be 'l1' or 'l2'")
+
+    total_score = 0
+    for u in component.nodes:
+        y = snf.apply_U(rel_shift[u])
+        node_mag = 0
+        for i in range(r):
+            di = int(snf.diag[i])
+            if di == 0:
+                raise CanonicalLiftError('invalid SNF diagonal entry')
+            qi = int(y[i] // di)
+            if score == 'l1':
+                node_mag += abs(qi)
+            else:
+                node_mag += qi * qi
+        total_score += node_mag
+
+    tree_edges: Optional[Tuple[TreeEdgeRec, ...]] = None
+    if return_tree:
+        recs: List[TreeEdgeRec] = []
+        children = _sorted_nodes_by_key(list(component._tree_parent.keys()), node_order)
+        for child in children:
+            parent, _t, k = component._tree_parent[child]
+            tvec = sub_tvec(abs_shift[child], abs_shift[parent])
+            recs.append((parent, child, tvec, int(k)))
+        tree_edges = tuple(recs)
+
+    return CanonicalLift(
+        nodes=insts_sorted,
+        strand_key=K,
+        anchor_site=anchor_site,
+        anchor_shift=anchor_shift,
+        placement='tree',
+        score=int(total_score),
+        tree_edges=tree_edges,
     )

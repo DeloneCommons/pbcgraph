@@ -11,3 +11,7 @@ class StaleComponentError(PBCGraphError):
 
 class LiftPatchError(PBCGraphError):
     """Raised when finite patch extraction fails."""
+
+
+class CanonicalLiftError(PBCGraphError):
+    """Raised when canonical lift construction fails."""
