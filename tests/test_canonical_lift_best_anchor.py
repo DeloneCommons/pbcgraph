@@ -17,7 +17,9 @@ def test_canonical_lift_best_anchor_selects_min_score_anchor():
     assert c.inst_key(('B', (0,))) == K0
     assert c.inst_key(('C', (0,))) == K0
 
-    out_tree = c.canonical_lift(anchor_shift=(0,), placement='tree', score='l1')
+    out_tree = c.canonical_lift(
+        anchor_shift=(0,), placement='tree', score='l1'
+    )
     out_best = c.canonical_lift(
         anchor_shift=(0,), placement='best_anchor', score='l1'
     )

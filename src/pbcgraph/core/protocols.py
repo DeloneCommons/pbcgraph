@@ -55,12 +55,14 @@ class PeriodicDiGraphLike(Protocol):
 
     # Lifted neighborhoods
     def neighbors_inst(
-        self, node_inst: tuple[NodeId, TVec], keys: bool = False, data: bool = False
+        self, node_inst: tuple[NodeId, TVec], keys: bool = False,
+        data: bool = False
     ) -> Iterable:
         ...
 
     def in_neighbors_inst(
-        self, node_inst: tuple[NodeId, TVec], keys: bool = False, data: bool = False
+        self, node_inst: tuple[NodeId, TVec], keys: bool = False,
+        data: bool = False
     ) -> Iterable:
         ...
 

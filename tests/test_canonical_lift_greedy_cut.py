@@ -49,8 +49,12 @@ def test_canonical_lift_greedy_cut_improves_score_and_preserves_connectivity():
 
     c = components(G)[0]
 
-    out_best = c.canonical_lift(anchor_shift=(0,), placement='best_anchor', score='l1')
-    out_greedy = c.canonical_lift(anchor_shift=(0,), placement='greedy_cut', score='l1')
+    out_best = c.canonical_lift(
+        anchor_shift=(0,), placement='best_anchor', score='l1'
+    )
+    out_greedy = c.canonical_lift(
+        anchor_shift=(0,), placement='greedy_cut', score='l1'
+    )
 
     assert out_greedy.placement == 'greedy_cut'
     assert out_greedy.anchor_site == out_best.anchor_site

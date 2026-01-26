@@ -1,7 +1,12 @@
 """Algorithms for pbcgraph (v0.1)."""
 
 from pbcgraph.alg.components import components, connected_components
-from pbcgraph.alg.lift import CanonicalLift, LiftPatch, canonical_lift, lift_patch
+from pbcgraph.alg.lift import (
+    CanonicalLift,
+    LiftPatch,
+    canonical_lift,
+    lift_patch,
+)
 from pbcgraph.alg.paths import Connectivity, shortest_path_quotient
 from pbcgraph.lattice import (
     SNFDecomposition,

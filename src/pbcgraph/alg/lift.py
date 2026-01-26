@@ -111,7 +111,9 @@ def _try_sort_patch_edges(
     try:
         records.sort(key=lambda r: (r[0], r[1], r[2]))
     except TypeError:
-        records.sort(key=lambda r: (fallback_key(r[0]), fallback_key(r[1]), r[2]))
+        records.sort(
+            key=lambda r: (fallback_key(r[0]), fallback_key(r[1]), r[2])
+        )
 
 
 @dataclass(frozen=True)
@@ -163,9 +165,9 @@ class LiftPatch:
               and undirected patches export as undirected.
             - For directed patches, `as_undirected=True` provides an undirected
               view:
-                - `undirected_mode='multigraph'` returns a MultiGraph where each
-                  directed edge becomes a distinct undirected multiedge, with
-                  direction metadata in edge attributes.
+                - `undirected_mode='multigraph'` returns a MultiGraph where
+                  each directed edge becomes a distinct undirected multiedge,
+                  with direction metadata in edge attributes.
                 - `undirected_mode='orig_edges'` returns a simple Graph where
                   each undirected adjacency stores `orig_edges=[...]`
                   snapshots.
@@ -301,8 +303,8 @@ def lift_patch(
 
     Notes:
         The returned patch is directed if `G.is_undirected == False`, and
-        undirected otherwise. Use `LiftPatch.to_networkx(as_undirected=True, ...)`
-        to obtain undirected views of directed patches.
+        undirected otherwise. Use `LiftPatch.to_networkx(as_undirected=True,
+        ...)` to obtain undirected views of directed patches.
 
 
     Args:
@@ -327,7 +329,9 @@ def lift_patch(
     u0, s0 = seed
     validate_tvec(s0, dim)
     if radius is None and box is None and box_rel is None:
-        raise LiftPatchError('at least one of radius, box, or box_rel is required')
+        raise LiftPatchError(
+            'at least one of radius, box, or box_rel is required'
+        )
     if radius is not None:
         radius = int(radius)
         if radius < 0:
@@ -394,21 +398,29 @@ def lift_patch(
     patch_is_directed = not bool(G.is_undirected)
 
     # -----------------
-        # Edge inclusion (no explicit tvec)
+    # Edge inclusion (no explicit tvec)
     # -----------------
     edges_out: List[Union[PatchEdgeRec, PatchMultiEdgeRec]] = []
     if include_edges:
         included_set = set(visited)
 
         if patch_is_directed:
-            records: List[Tuple[NodeInst, NodeInst, int, Any, Dict[str, Any]]] = []
+            records: List[
+                Tuple[NodeInst, NodeInst, int, Any, Dict[str, Any]]
+            ] = []
             for inst in nodes:
-                for v, s2, k, attrs in G.neighbors_inst(inst, keys=True, data=True):
+                for v, s2, k, attrs in G.neighbors_inst(
+                    inst, keys=True, data=True
+                ):
                     nb = (v, s2)
                     if nb not in included_set:
                         continue
                     sel_key = (inst, nb, int(k))
-                    sc = edge_order(sel_key) if edge_order is not None else sel_key
+                    sc = (
+                        edge_order(sel_key)
+                        if edge_order is not None
+                        else sel_key
+                    )
                     records.append((inst, nb, int(k), sc, dict(attrs)))
 
             try:
@@ -431,14 +443,20 @@ def lift_patch(
                     edges_out.append((u_inst, v_inst, dict(attrs)))
 
         else:
-            candidates: List[Tuple[NodeInst, NodeInst, int, Dict[str, Any]]] = []
+            candidates: List[
+                Tuple[NodeInst, NodeInst, int, Dict[str, Any]]
+            ] = []
             for inst in nodes:
-                for v, s2, k, attrs in G.neighbors_inst(inst, keys=True, data=True):
+                for v, s2, k, attrs in G.neighbors_inst(
+                    inst, keys=True, data=True
+                ):
                     nb = (v, s2)
                     if nb not in included_set:
                         continue
                     candidates.append((inst, nb, int(k), dict(attrs)))
-                for v, s2, k, attrs in G.in_neighbors_inst(inst, keys=True, data=True):
+                for v, s2, k, attrs in G.in_neighbors_inst(
+                    inst, keys=True, data=True
+                ):
                     nb = (v, s2)
                     if nb not in included_set:
                         continue
@@ -457,13 +475,19 @@ def lift_patch(
             ] = {}
             for u_inst, v_inst, k, attrs in canon:
                 if G.is_multigraph:
-                    eid: Tuple[NodeInst, NodeInst, Optional[int]] = (u_inst, v_inst, k)
+                    eid: Tuple[
+                        NodeInst, NodeInst, Optional[int]
+                    ] = (u_inst, v_inst, k)
                     sel_key = (u_inst, v_inst, k)
                 else:
                     eid = (u_inst, v_inst, None)
                     sel_key = (u_inst, v_inst, k)
 
-                score = edge_order(sel_key) if edge_order is not None else sel_key
+                score = (
+                    edge_order(sel_key)
+                    if edge_order is not None
+                    else sel_key
+                )
 
                 if eid not in best:
                     best[eid] = (score, attrs)
@@ -546,9 +570,13 @@ def _sorted_nodes_by_key(
         return node_order(u)
 
     try:
-        return tuple(sorted(seq, key=lambda u: (k(u), fallback_key(u))))
+        return tuple(
+            sorted(seq, key=lambda u: (k(u), fallback_key(u)))
+        )
     except TypeError:
-        return tuple(sorted(seq, key=lambda u: (fallback_key(k(u)), fallback_key(u))))
+        return tuple(
+            sorted(seq, key=lambda u: (fallback_key(k(u)), fallback_key(u)))
+        )
 
 
 def _sorted_node_insts(
@@ -569,12 +597,17 @@ def _sorted_node_insts(
         return node_order(u)
 
     try:
-        return tuple(sorted(seq, key=lambda x: (k(x[0]), x[1], fallback_key(x[0]))))
+        return tuple(sorted(
+            seq, key=lambda x: (
+                k(x[0]), x[1], fallback_key(x[0])
+            )
+        ))
     except TypeError:
-        return tuple(
-            sorted(seq, key=lambda x: (fallback_key(k(x[0])), x[1], fallback_key(x[0])))
-        )
-
+        return tuple(sorted(
+            seq, key=lambda x: (
+                fallback_key(k(x[0])), x[1], fallback_key(x[0])
+            )
+        ))
 
 
 def _compute_lift_score(
@@ -667,7 +700,8 @@ def _is_connected_undirected(
     *,
     skip: Optional[NodeId] = None,
 ) -> bool:
-    """Return True if the induced graph is connected (optionally skipping a node)."""
+    """Return True if the induced graph is connected
+    (optionally skipping a node)."""
     nodes = [u for u in nodes_ordered if u != skip]
     if not nodes:
         return True
@@ -765,7 +799,8 @@ def canonical_lift(
 
     if placement not in ('tree', 'best_anchor', 'greedy_cut'):
         raise CanonicalLiftError(
-            "canonical_lift placement must be one of 'tree', 'best_anchor', 'greedy_cut'"
+            "canonical_lift placement must be one of 'tree', "
+            "'best_anchor', 'greedy_cut'"
         )
 
     dim = int(component.graph.dim)
@@ -774,7 +809,7 @@ def canonical_lift(
         u_seed, s_seed = seed
         validate_tvec(s_seed, dim)
     else:
-        u_seed = None
+        u_seed = None  # noqa: F841
         s_seed = None
 
     if anchor_shift is None:
@@ -790,9 +825,13 @@ def canonical_lift(
             try:
                 K = component.inst_key(seed)
             except KeyError as e:
-                raise CanonicalLiftError('seed does not belong to component') from e
+                raise CanonicalLiftError(
+                    'seed does not belong to component'
+                ) from e
         else:
-            nodes_sorted = _sorted_nodes_by_key(list(component.nodes), node_order)
+            nodes_sorted = _sorted_nodes_by_key(
+                list(component.nodes), node_order
+            )
             if not nodes_sorted:
                 raise CanonicalLiftError('component has no nodes')
             default_seed = (nodes_sorted[0], zero_tvec(dim))
@@ -869,7 +908,9 @@ def canonical_lift(
             moved = False
             adj = _build_internal_adj(component, abs_cur)
             if not _is_connected_undirected(adj, nodes_sorted):
-                raise CanonicalLiftError('internal induced graph is disconnected')
+                raise CanonicalLiftError(
+                    'internal induced graph is disconnected'
+                )
 
             for u in nodes_sorted:
                 if u == anchor_site:
@@ -904,7 +945,9 @@ def canonical_lift(
                             x: sub_tvec(abs_cur[x], abs_cur[anchor_site])
                             for x in component.nodes
                         }
-                        s = _compute_lift_score(snf, rel_tmp, nodes_list, score)
+                        s = _compute_lift_score(
+                            snf, rel_tmp, nodes_list, score
+                        )
                         if s < cur_score:
                             if best_move is None:
                                 best_move = (int(s), delta)
@@ -936,7 +979,9 @@ def canonical_lift(
     tree_edges: Optional[Tuple[TreeEdgeRec, ...]] = None
     if return_tree:
         recs: List[TreeEdgeRec] = []
-        children = _sorted_nodes_by_key(list(component._tree_parent.keys()), node_order)
+        children = _sorted_nodes_by_key(
+            list(component._tree_parent.keys()), node_order
+        )
         for child in children:
             parent, _t, k = component._tree_parent[child]
             tvec = sub_tvec(abs_shift[child], abs_shift[parent])

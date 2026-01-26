@@ -13,7 +13,9 @@ def test_canonical_lift_tree_basic_properties_and_tree_edges():
     G.add_edge('C', 'A', (1,))
 
     c = components(G)[0]
-    out = c.canonical_lift(seed=('B', (0,)), anchor_shift=(0,), return_tree=True)
+    out = c.canonical_lift(
+        seed=('B', (0,)), anchor_shift=(0,), return_tree=True
+    )
 
     assert {u for u, _s in out.nodes} == {'A', 'B', 'C'}
     assert len(out.nodes) == 3

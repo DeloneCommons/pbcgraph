@@ -37,6 +37,7 @@ from pbcgraph.core.types import (
 )
 from pbcgraph.core.protocols import PeriodicDiGraphLike
 from pbcgraph.lattice.snf import SNFDecomposition, snf_decomposition
+from pbcgraph.alg.lift import CanonicalLift
 
 
 def _tvec_is_zero(t: TVec) -> bool:
@@ -265,7 +266,6 @@ class PeriodicComponent:
             'torsion_moduli': torsion_moduli,
         }
 
-
     # -----------------
     # Canonical lifts
     # -----------------
@@ -341,7 +341,9 @@ class PeriodicComponent:
                 q.append(v)
 
             # Incoming edges next (weak traversal).
-            for v, t_in, k in self.graph.in_neighbors(u, keys=True, data=False):
+            for v, t_in, k in self.graph.in_neighbors(
+                u, keys=True, data=False
+            ):
                 if v not in self.nodes:
                     continue
                 if v in pot:
