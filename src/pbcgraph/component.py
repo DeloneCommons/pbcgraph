@@ -385,3 +385,4 @@ class PeriodicComponent:
                 continue
             gens.append(g)
         return gens
+

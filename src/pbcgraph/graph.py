@@ -529,6 +529,7 @@ class PeriodicDiGraph:
                     else:
                         yield u, v
 
+
     def undirected_edges_unique(
         self, keys: bool = False, data: bool = False, tvec: bool = False
     ) -> Iterable:
