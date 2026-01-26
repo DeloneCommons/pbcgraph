@@ -52,6 +52,7 @@ if TYPE_CHECKING:
 from pbcgraph.alg.components import components as _components
 
 from pbcgraph.core.ordering import (
+    fallback_key,
     stable_sorted,
     stable_tvec,
     # stable_unique_sorted,
@@ -499,6 +500,107 @@ class PeriodicDiGraph:
                     _base_key(k), edata[_USER_ATTRS]
                 )
             )
+
+        try_sort_edges(records)
+
+        for u, v, tv, k, attrs in records:
+            if data:
+                attrs_ro = _ro(attrs)
+            if tvec:
+                if keys:
+                    if data:
+                        yield u, v, tv, k, attrs_ro
+                    else:
+                        yield u, v, tv, k
+                else:
+                    if data:
+                        yield u, v, tv, attrs_ro
+                    else:
+                        yield u, v, tv
+            else:
+                if keys:
+                    if data:
+                        yield u, v, k, attrs_ro
+                    else:
+                        yield u, v, k
+                else:
+                    if data:
+                        yield u, v, attrs_ro
+                    else:
+                        yield u, v
+
+    def undirected_edges_unique(
+        self, keys: bool = False, data: bool = False, tvec: bool = False
+    ) -> Iterable:
+        """Iterate unique undirected edges in deterministic order.
+
+        This iterator is only defined for undirected containers
+        (`PeriodicGraph` / `PeriodicMultiGraph`). It returns each undirected
+        quotient edge exactly once, in a canonical orientation.
+
+        Canonicalization rules:
+            - For `u != v`, the returned endpoints satisfy `u <= v` under the
+              same ordering policy used elsewhere in pbcgraph.
+            - For quotient self-loops with nonzero translation, the returned
+              translation vector is canonicalized to `min(tvec, -tvec)`.
+
+        Args:
+            keys: If True, include the public base edge key.
+            data: If True, include the read-only user attribute mapping.
+            tvec: If True, include the translation vector.
+
+        Returns:
+            An iterable of:
+                - `(u, v)`
+                - `(u, v, attrs)`
+                - `(u, v, key)`
+                - `(u, v, tvec)`
+                - `(u, v, tvec, key)`
+                - `(u, v, key, attrs)`
+                - `(u, v, tvec, attrs)`
+                - `(u, v, tvec, key, attrs)`
+
+        Raises:
+            TypeError: If called on a directed container.
+        """
+        if not self.is_undirected:
+            raise TypeError(
+                'undirected_edges_unique is only available for '
+                'undirected containers'
+            )
+
+        records: List[Tuple[Any, Any, Tuple[int, ...], int, Any]] = []
+        seen: set[Tuple[Any, Any, Tuple[int, ...], int]] = set()
+
+        for u, v, k, edata in self._g.edges(keys=True, data=True):
+            base = int(_base_key(k))
+            tv = stable_tvec(edata[_TVEC_ATTR])
+
+            if u == v:
+                tv_neg = stable_tvec(neg_tvec(tv))
+                tv_abs = tv if tv <= tv_neg else tv_neg
+                ident = (u, u, tv_abs, base)
+                if ident in seen:
+                    continue
+                seen.add(ident)
+                records.append((u, u, tv_abs, base, edata[_USER_ATTRS]))
+                continue
+
+            try:
+                leq = u <= v  # type: ignore[operator]
+            except TypeError:
+                leq = fallback_key(u) <= fallback_key(v)
+
+            if leq:
+                a, b, tv_use = u, v, tv
+            else:
+                a, b, tv_use = v, u, stable_tvec(neg_tvec(tv))
+
+            ident = (a, b, tv_use, base)
+            if ident in seen:
+                continue
+            seen.add(ident)
+            records.append((a, b, tv_use, base, edata[_USER_ATTRS]))
 
         try_sort_edges(records)
 

@@ -25,7 +25,6 @@ from typing import (
 )
 
 from pbcgraph.core.exceptions import StaleComponentError
-from pbcgraph.core.ordering import fallback_key
 from pbcgraph.core.types import (
     NodeId,
     NodeInst,
@@ -376,36 +375,12 @@ class PeriodicComponent:
                 gens.append(g)
             return gens
 
-        def _node_leq(a: NodeId, b: NodeId) -> bool:
-            try:
-                return a <= b  # type: ignore[operator]
-            except TypeError:
-                return fallback_key(a) <= fallback_key(b)
-
-        seen = set()
-        for u, v, t, k in self.graph.edges(keys=True, data=False, tvec=True):
+        for u, v, t, k in self.graph.undirected_edges_unique(
+            keys=True, data=False, tvec=True
+        ):
             if u not in self.nodes or v not in self.nodes:
                 continue
-
-            tv = tuple(int(x) for x in t)
-            if u == v:
-                tv_abs = min(tv, neg_tvec(tv))
-                ident = (u, u, tv_abs, int(k))
-                if ident in seen:
-                    continue
-                seen.add(ident)
-                g = tv_abs
-            else:
-                if _node_leq(u, v):
-                    a, b, tv_use = u, v, tv
-                else:
-                    a, b, tv_use = v, u, neg_tvec(tv)
-                ident = (a, b, tv_use, int(k))
-                if ident in seen:
-                    continue
-                seen.add(ident)
-                g = sub_tvec(add_tvec(pot[a], tv_use), pot[b])
-
+            g = sub_tvec(add_tvec(pot[u], t), pot[v])
             if _tvec_is_zero(g):
                 continue
             gens.append(g)

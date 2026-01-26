@@ -3,6 +3,12 @@
 This project follows a lightweight "keep a log" style.
 
 
+## 0.1.3 - Refactoring and robustness
+
+- Added `undirected_edges_unique(...)` for undirected containers and use it internally for component generator extraction.
+- `lift_patch(...)` avoids redundant incoming-edge traversal for undirected containers (no semantic change).
+
+
 ## 0.1.2 - Finite lifts and canonical lifts
 
 - **Finite lift patches**

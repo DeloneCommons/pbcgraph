@@ -367,8 +367,9 @@ def lift_patch(
     def iter_weak_neighbors(inst: NodeInst) -> Iterator[NodeInst]:
         for v, s2 in G.neighbors_inst(inst, keys=False, data=False):
             yield v, s2
-        for v, s2 in G.in_neighbors_inst(inst, keys=False, data=False):
-            yield v, s2
+        if not G.is_undirected:
+            for v, s2 in G.in_neighbors_inst(inst, keys=False, data=False):
+                yield v, s2
 
     while q:
         cur = q.popleft()
@@ -448,13 +449,6 @@ def lift_patch(
             ] = []
             for inst in nodes:
                 for v, s2, k, attrs in G.neighbors_inst(
-                    inst, keys=True, data=True
-                ):
-                    nb = (v, s2)
-                    if nb not in included_set:
-                        continue
-                    candidates.append((inst, nb, int(k), dict(attrs)))
-                for v, s2, k, attrs in G.in_neighbors_inst(
                     inst, keys=True, data=True
                 ):
                     nb = (v, s2)
