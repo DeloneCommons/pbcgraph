@@ -5,14 +5,22 @@ This project follows a lightweight "keep a log" style.
 
 ## 0.1.3 - Refactoring and robustness
 
-- Added `undirected_edges_unique(...)` for undirected containers and use it internally for component generator extraction.
-- `lift_patch(...)` avoids redundant incoming-edge traversal for undirected containers (no semantic change).
-- Refactored `LiftPatch.to_networkx(...)` into small helpers (no behavior change).
-- `LiftPatch.to_networkx(as_undirected=True, ...)` now stores direction and orig-edge snapshots under a single reserved edge attribute `__pbcgraph__` to avoid collisions with user attributes (minor breaking change for code that read `_pbc_*` or `orig_edges`).
-- Split `pbcgraph.alg.lift` into `_lift_patch` and `_canonical_lift` implementation modules, keeping the public API unchanged.
-- Added read-only accessors `PeriodicComponent.snf` and `PeriodicComponent.tree_parent_map()` and updated `canonical_lift(...)` to avoid touching private component caches.
-- Refactored `edges()`, `neighbors()`, and `in_neighbors()` to use streaming deterministic iteration (avoid building a full edge list just to sort it).
-- General refactors: introduce an internal constant `PBC_META_KEY` for NetworkX export metadata, simplify internal key filtering in undirected containers, and apply small style cleanups.
+- **Added**:
+    - `undirected_edges_unique(...)` for undirected containers and use it internally for component generator extraction.
+    - Read-only accessors `PeriodicComponent.snf` and `PeriodicComponent.tree_parent_map()` and updated `canonical_lift(...)` to avoid touching private component caches.
+
+- **Changed**:
+    - `LiftPatch.to_networkx(as_undirected=True, ...)` now stores direction and orig-edge snapshots under a single reserved edge attribute `__pbcgraph__` to avoid collisions with user attributes.
+    - Minor: code that previously read `_pbc_*` or `orig_edges` from NetworkX exports must now read `__pbcgraph__`.
+
+- **Performance**:
+    - `lift_patch(...)` avoids redundant incoming-edge traversal for undirected containers (no semantic change).
+    - Refactored `edges()`, `neighbors()`, and `in_neighbors()` to use streaming deterministic iteration (avoid building a full edge list just to sort it).
+
+- **Refactors**:
+    - Refactored `LiftPatch.to_networkx(...)` into small helpers (no behavior change).
+    - Split `pbcgraph.alg.lift` into `_lift_patch` and `_canonical_lift` implementation modules, keeping the public API unchanged.
+    - General refactors: introduce an internal constant `PBC_META_KEY` for NetworkX export metadata, simplify internal key filtering in undirected containers, and apply small style cleanups.
 
 
 ## 0.1.2 - Finite lifts and canonical lifts
