@@ -413,6 +413,61 @@ def _sorted_node_insts(
         )
 
 
+
+def _compute_lift_score(
+    snf: Any,
+    rel_shifts: Dict[NodeId, TVec],
+    nodes: Sequence[NodeId],
+    score: Literal['l1', 'l2'],
+) -> int:
+    """Compute placement score for a lift.
+
+    Args:
+        snf: SNF decomposition of the component translation subgroup.
+        rel_shifts: Per-node relative shifts with respect to the anchor site.
+        nodes: Quotient node ids in the component.
+        score: Score metric: 'l1' or 'l2'.
+
+    Returns:
+        The deterministic integer score (smaller is better).
+
+    Raises:
+        CanonicalLiftError: If the SNF decomposition is invalid.
+    """
+    r = int(snf.rank)
+    total = 0
+    for u in nodes:
+        y = snf.apply_U(rel_shifts[u])
+        node_mag = 0
+        for i in range(r):
+            di = int(snf.diag[i])
+            if di == 0:
+                raise CanonicalLiftError('invalid SNF diagonal entry')
+            qi = int(y[i] // di)
+            if score == 'l1':
+                node_mag += abs(qi)
+            else:
+                node_mag += qi * qi
+        total += node_mag
+    return int(total)
+
+
+def _compute_rel_abs_shifts(
+    pot: Dict[NodeId, TVec],
+    *,
+    anchor_site: NodeId,
+    anchor_shift: TVec,
+) -> Tuple[Dict[NodeId, TVec], Dict[NodeId, TVec]]:
+    """Compute relative and absolute shifts for a given anchor site."""
+    pot_anchor = pot[anchor_site]
+    rel: Dict[NodeId, TVec] = {}
+    abs_s: Dict[NodeId, TVec] = {}
+    for u, pu in pot.items():
+        r = sub_tvec(pu, pot_anchor)
+        rel[u] = r
+        abs_s[u] = add_tvec(anchor_shift, r)
+    return rel, abs_s
+
 def canonical_lift(
     component: Any,
     *,
@@ -427,7 +482,7 @@ def canonical_lift(
 ) -> CanonicalLift:
     """Construct a deterministic finite representation of one strand.
 
-    v0.1.2 step2 implements `placement='tree'` only.
+    v0.1.2 step3 implements `placement='tree'` and `placement='best_anchor'`.
 
     Args:
         component: A :class:`~pbcgraph.component.PeriodicComponent`.
@@ -449,10 +504,14 @@ def canonical_lift(
     """
     del edge_order  # Reserved for later placement modes.
 
-    if placement != 'tree':
+    if placement not in ('tree', 'best_anchor', 'greedy_cut'):
         raise CanonicalLiftError(
-            "canonical_lift placement '%s' is not implemented in v0.1.2 step2"
-            % placement
+            "canonical_lift placement must be one of 'tree', 'best_anchor', 'greedy_cut'"
+        )
+
+    if placement == 'greedy_cut':
+        raise CanonicalLiftError(
+            "canonical_lift placement 'greedy_cut' is not implemented in v0.1.2 step3"
         )
 
     dim = int(component.graph.dim)
@@ -497,42 +556,55 @@ def canonical_lift(
             'requested strand_key does not intersect the anchor cell'
         )
 
-    anchor_site = _sorted_nodes_by_key(eligible, node_order)[0]
-
-    pot_anchor = component.potential(anchor_site)
-    abs_shift: Dict[NodeId, TVec] = {}
-    rel_shift: Dict[NodeId, TVec] = {}
-
-    for u in component.nodes:
-        rel = sub_tvec(component.potential(u), pot_anchor)
-        rel_shift[u] = rel
-        abs_shift[u] = add_tvec(anchor_shift, rel)
-
-    insts = [(u, abs_shift[u]) for u in component.nodes]
-    insts_sorted = _sorted_node_insts(insts, node_order)
+    pot = {u: component.potential(u) for u in component.nodes}
 
     snf = component._snf
     if snf is None:
         raise CanonicalLiftError('component has no SNF decomposition')
 
-    r = int(snf.rank)
     if score not in ('l1', 'l2'):
         raise CanonicalLiftError("score must be 'l1' or 'l2'")
 
-    total_score = 0
-    for u in component.nodes:
-        y = snf.apply_U(rel_shift[u])
-        node_mag = 0
-        for i in range(r):
-            di = int(snf.diag[i])
-            if di == 0:
-                raise CanonicalLiftError('invalid SNF diagonal entry')
-            qi = int(y[i] // di)
-            if score == 'l1':
-                node_mag += abs(qi)
-            else:
-                node_mag += qi * qi
-        total_score += node_mag
+    nodes_list = list(component.nodes)
+    eligible_sorted = _sorted_nodes_by_key(eligible, node_order)
+
+    if placement == 'tree':
+        anchor_site = eligible_sorted[0]
+        rel_shift, abs_shift = _compute_rel_abs_shifts(
+            pot,
+            anchor_site=anchor_site,
+            anchor_shift=anchor_shift,
+        )
+        total_score = _compute_lift_score(snf, rel_shift, nodes_list, score)
+    else:
+        best_anchor_site: Optional[NodeId] = None
+        best_rel: Optional[Dict[NodeId, TVec]] = None
+        best_abs: Optional[Dict[NodeId, TVec]] = None
+        best_score: Optional[int] = None
+
+        for a in eligible_sorted:
+            rel_a, abs_a = _compute_rel_abs_shifts(
+                pot,
+                anchor_site=a,
+                anchor_shift=anchor_shift,
+            )
+            s = _compute_lift_score(snf, rel_a, nodes_list, score)
+            if best_score is None or s < best_score:
+                best_score = int(s)
+                best_anchor_site = a
+                best_rel = rel_a
+                best_abs = abs_a
+
+        if best_anchor_site is None or best_rel is None or best_abs is None:
+            raise CanonicalLiftError('failed to select anchor site')
+
+        anchor_site = best_anchor_site
+        rel_shift = best_rel
+        abs_shift = best_abs
+        total_score = int(best_score)
+
+    insts = [(u, abs_shift[u]) for u in component.nodes]
+    insts_sorted = _sorted_node_insts(insts, node_order)
 
     tree_edges: Optional[Tuple[TreeEdgeRec, ...]] = None
     if return_tree:
@@ -549,7 +621,7 @@ def canonical_lift(
         strand_key=K,
         anchor_site=anchor_site,
         anchor_shift=anchor_shift,
-        placement='tree',
+        placement=placement,
         score=int(total_score),
         tree_edges=tree_edges,
     )

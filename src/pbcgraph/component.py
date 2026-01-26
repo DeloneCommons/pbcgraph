@@ -290,7 +290,7 @@ class PeriodicComponent:
             seed: Optional seed instance used to determine `strand_key` and/or
                 default `anchor_shift`.
             anchor_shift: Target anchor cell shift.
-            placement: Placement mode. v0.1.2 step2 implements `'tree'` only.
+            placement: Placement mode. v0.1.2 step3 implements `'tree'` and `'best_anchor'`.
             score: Score metric, `'l1'` or `'l2'`.
             return_tree: If True, include spanning-tree edge records.
             node_order: Optional ordering key for quotient node ids.
