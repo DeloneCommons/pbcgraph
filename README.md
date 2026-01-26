@@ -17,6 +17,8 @@ What you get in v0.1:
 - `PeriodicGraph` / `PeriodicDiGraph`: unique edge per `(u, v, tvec)`.
 - `PeriodicMultiGraph` / `PeriodicMultiDiGraph`: parallel edges allowed for the same `(u, v, tvec)`.
 - `PeriodicComponent`: lattice invariants (rank, SNF torsion) and exact instance connectivity via `same_fragment(...)`.
+- `lift_patch(...)`: extract a finite (non-periodic) patch of the infinite lift around a seed instance.
+- `canonical_lift(...)`: select one lifted instance per quotient node for a chosen strand (coset in `Z^d/L`).
 
 ## Status
 
@@ -70,6 +72,20 @@ neighbors = list(G.neighbors_inst(('A', (0, 0))))
 comp = G.components()[0]
 assert comp.same_fragment(('A', (0, 0)), ('A', (1, 0)))
 assert not comp.same_fragment(('A', (0, 0)), ('A', (0, 1)))
+
+# Extract a finite patch of the infinite lift around a seed instance.
+patch = G.lift_patch(('A', (0, 0)), radius=2)
+nx_patch = patch.to_networkx()  # nx.Graph / nx.MultiGraph for undirected sources
+
+# For directed sources, patches are directed by default:
+#   nx_patch = patch.to_networkx()  # nx.DiGraph / nx.MultiDiGraph
+# and you can obtain undirected views via:
+#   nx_u = patch.to_networkx(as_undirected=True, undirected_mode='multigraph')
+#   nx_c = patch.to_networkx(as_undirected=True, undirected_mode='orig_edges')
+
+# Canonical lift: pick one instance per quotient node for a strand.
+lift = comp.canonical_lift(placement='tree')
+assert len(lift.instances) == len(comp.nodes)
 ```
 
 ## Documentation

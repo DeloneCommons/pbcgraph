@@ -3,6 +3,28 @@
 This project follows a lightweight "keep a log" style.
 
 
+## 0.1.2 - Finite lifts and canonical lifts
+
+- **Finite lift patches**
+    - Added `lift_patch(...)`: extract a finite patch of the infinite lift around a seed instance, using either a BFS radius and/or absolute/relative cell-index bounding boxes.
+    - Patch edges store **snapshot** attribute dicts.
+    - For undirected containers, paired directed realizations are deduplicated deterministically.
+
+- **Patch export and directed semantics**
+    - For directed periodic containers, `lift_patch(...)` now produces a **directed** patch by default (exported as `nx.DiGraph` / `nx.MultiDiGraph`).
+    - `LiftPatch.to_networkx(as_undirected=True, undirected_mode=...)` provides undirected views of directed patches:
+        - `undirected_mode='multigraph'`: one undirected multiedge per directed edge (direction preserved in `_pbc_tail`/`_pbc_head`).
+        - `undirected_mode='orig_edges'`: collapsed simple graph with `orig_edges=[...]` snapshots for each adjacency.
+
+- **Canonical lifts (strand representatives)**
+    - Added `canonical_lift(...)` to select one instance per quotient node for a chosen strand (coset in `Z^d/L`).
+    - Implemented placements: `tree`, `best_anchor`, and `greedy_cut`.
+    - Stored deterministic spanning-tree parent edges on `PeriodicComponent` to optionally return `tree_edges`.
+
+- **Errors**
+    - Added `CanonicalLiftError` and `LiftPatchError` for well-scoped failure modes.
+
+
 ## 0.1.1 - Refactoring
 
 - **Deterministic iteration**

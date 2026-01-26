@@ -20,6 +20,8 @@ The key idea is simple and useful: you store a **finite quotient graph** (intern
     - deterministic `inst_key(...)` keys for lifted instances within a component.
 - `same_fragment(...)`: exact “are these two lifted instances in the same connected fragment?” checks.
 - `shortest_path_quotient(...)`: fast BFS in the quotient with `connectivity='directed'|'weak'`.
+- `lift_patch(...)`: extract a finite patch of the infinite lift around a seed instance.
+- `canonical_lift(...)`: pick a canonical set of lifted instances (one per quotient node) for a chosen strand.
 
 ## Design philosophy
 

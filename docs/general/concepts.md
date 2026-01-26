@@ -115,14 +115,27 @@ Sometimes you want a **finite non-periodic graph** that represents a local
 fragment of the infinite lift (for visualization, local feature computation,
 or feeding to non-periodic algorithms).
 
-`PeriodicDiGraph.lift_patch(...)` builds such a patch around a seed instance
-`(u, shift)` using either a BFS radius and/or a cell-index bounding box.
-The resulting patch is always **undirected**.
+`lift_patch(...)` builds such a patch around a seed instance `(u, shift)` using
+either a BFS radius and/or a cell-index bounding box.
 
-!!! note
-    When extracting a patch from a **directed** periodic graph, different
-    directed quotient edges can collapse to the same undirected patch edge.
-    In such cases, only one edge-attribute snapshot can be retained. If you
-    need direction-aware edge properties in a lift, treat this as a limitation
-    of v0.1.x and prefer storing symmetric information in undirected
-    containers.
+Important details:
+
+- **Traversal is weakly connected** in the lift: from an instance it considers
+  both outgoing and incoming periodic edges (successors ∪ predecessors).
+  This makes patch extraction useful even for directed quotient graphs.
+
+- **Patch direction follows the container**:
+    - from undirected containers (`PeriodicGraph`, `PeriodicMultiGraph`), the
+      patch is undirected;
+    - from directed containers (`PeriodicDiGraph`, `PeriodicMultiDiGraph`), the
+      patch is directed.
+
+- **Undirected views of directed patches** are available via
+  `LiftPatch.to_networkx(as_undirected=True, undirected_mode=...)`:
+    - `undirected_mode='multigraph'`: one undirected multiedge per directed
+      edge; direction metadata is stored in `_pbc_tail`/`_pbc_head`.
+    - `undirected_mode='orig_edges'`: collapsed simple graph; each undirected
+      adjacency stores `orig_edges=[...]` snapshots.
+
+These export options avoid silent loss of information when you want an
+undirected representation for an inherently directed relation.
