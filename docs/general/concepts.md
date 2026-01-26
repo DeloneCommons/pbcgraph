@@ -139,5 +139,13 @@ Important details:
       adjacency stores `orig_edges=[...]` snapshots under the `__pbcgraph__`
       edge attribute.
 
+
+
+**NetworkX export metadata key.** Direction/origin information is stored under a single
+reserved edge attribute named `__pbcgraph__`. In code, prefer using the constant
+`PBC_META_KEY` (exported from `pbcgraph`) instead of hardcoding the string.
+The library reserves this key for its own metadata; attempting to set it as a user
+edge attribute will raise an error.
+
 These export options avoid silent loss of information when you want an
 undirected representation for an inherently directed relation.
