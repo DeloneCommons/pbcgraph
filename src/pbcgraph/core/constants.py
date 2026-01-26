@@ -1,7 +1,9 @@
-"""Internal constants.
+"""Shared constants.
 
-These constants are not part of the public API. They are provided to keep
-internal conventions consistent across modules.
+This module centralizes constant values used across pbcgraph.
+
+Some constants are part of the public API when they define interoperability
+contracts with external data structures.
 """
 
 from __future__ import annotations

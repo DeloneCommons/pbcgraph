@@ -1,7 +1,7 @@
 import networkx as nx
 import pytest
 
-from pbcgraph import PeriodicDiGraph, PeriodicGraph, PeriodicMultiGraph
+from pbcgraph import PBC_META_KEY, PeriodicDiGraph, PeriodicGraph, PeriodicMultiGraph
 from pbcgraph.core.exceptions import LiftPatchError
 
 
@@ -69,7 +69,7 @@ def test_lift_patch_directed_preserves_both_directions_and_exports():
         if {u, v} != {('A', (0,)), ('B', (0,))}:
             continue
         labels.append(data['label'])
-        meta = data['__pbcgraph__']
+        meta = data[PBC_META_KEY]
         assert meta['tail'] in {('A', (0,)), ('B', (0,))}
         assert meta['head'] in {('A', (0,)), ('B', (0,))}
     assert sorted(labels) == ['x', 'y']
@@ -77,8 +77,8 @@ def test_lift_patch_directed_preserves_both_directions_and_exports():
     nxC = patch.to_networkx(as_undirected=True, undirected_mode='orig_edges')
     assert isinstance(nxC, nx.Graph)
     data = nxC.edges[('A', (0,)), ('B', (0,))]
-    assert '__pbcgraph__' in data
-    recs = data['__pbcgraph__']['orig_edges']
+    assert PBC_META_KEY in data
+    recs = data[PBC_META_KEY]['orig_edges']
     assert len(recs) == 2
     labels2 = sorted([rec['attrs']['label'] for rec in recs])
     assert labels2 == ['x', 'y']

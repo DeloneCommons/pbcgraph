@@ -73,6 +73,7 @@ from pbcgraph.graph import (
 )
 from pbcgraph.component import PeriodicComponent
 
+from pbcgraph.core.constants import PBC_META_KEY
 from pbcgraph.core.exceptions import PBCGraphError, StaleComponentError
 from pbcgraph.core.types import (
     TVec,
@@ -88,6 +89,7 @@ from pbcgraph.core.types import (
 
 __all__ = [
     '__version__',
+    'PBC_META_KEY',
     # containers
     'PeriodicDiGraph',
     'PeriodicGraph',
