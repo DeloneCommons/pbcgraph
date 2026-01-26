@@ -5,8 +5,9 @@ quotient graph.
 
 v0.1.2 adds two high-level operations:
 
-1) ``lift_patch``: extract a finite undirected patch of the infinite lift
-   around a seed instance.
+1) ``lift_patch``: extract a finite patch of the infinite lift
+   around a seed instance (directed for directed sources; undirected for
+   undirected sources).
 
 2) ``canonical_lift`` (added in later steps of the v0.1.2 plan).
 """
@@ -115,13 +116,17 @@ def _try_sort_patch_edges(
 
 @dataclass(frozen=True)
 class LiftPatch:
-    """A finite undirected patch extracted from the infinite lift.
+    """A finite patch extracted from the infinite lift.
 
     Attributes:
         nodes: Node instances `(u, shift)` in canonical order.
-        edges: Undirected edges between included node instances.
+        edges: Edges between included node instances.
+
             - For simple containers: `(u_inst, v_inst, attrs)`.
             - For multigraph containers: `(u_inst, v_inst, key, attrs)`.
+
+            For directed patches, `(u_inst, v_inst)` is ordered.
+            For undirected patches, endpoints are in canonical order.
         seed: Seed node instance.
         radius: BFS radius in the lifted graph (weak connectivity), if used.
         box: Effective absolute box constraint after intersection, if used.
@@ -133,24 +138,148 @@ class LiftPatch:
     radius: Optional[int]
     box: Optional[Tuple[Tuple[int, int], ...]]
     _is_multigraph: bool = False
+    _is_directed: bool = False
 
-    def to_networkx(self) -> Union[nx.Graph, nx.MultiGraph]:
-        """Export the patch as a NetworkX graph."""
-        if self._is_multigraph:
-            G: Union[nx.Graph, nx.MultiGraph] = nx.MultiGraph()
-        else:
-            G = nx.Graph()
+    @property
+    def is_multigraph(self) -> bool:
+        """Whether the patch edges include keys."""
+        return bool(self._is_multigraph)
 
+    @property
+    def is_directed(self) -> bool:
+        """Whether the patch edges are directed."""
+        return bool(self._is_directed)
+
+    def to_networkx(
+        self,
+        *,
+        as_undirected: Optional[bool] = None,
+        undirected_mode: Literal['multigraph', 'orig_edges'] = 'multigraph',
+    ) -> Union[nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]:
+        """Export the patch as a NetworkX graph.
+
+        Notes:
+            - By default, directed patches export as directed NetworkX graphs,
+              and undirected patches export as undirected.
+            - For directed patches, `as_undirected=True` provides an undirected
+              view:
+                - `undirected_mode='multigraph'` returns a MultiGraph where each
+                  directed edge becomes a distinct undirected multiedge, with
+                  direction metadata in edge attributes.
+                - `undirected_mode='orig_edges'` returns a simple Graph where
+                  each undirected adjacency stores `orig_edges=[...]`
+                  snapshots.
+        """
+        if as_undirected is None:
+            as_undirected = not self.is_directed
+
+        if not self.is_directed and as_undirected is False:
+            raise ValueError('cannot export an undirected patch as directed')
+
+        # Directed export (default for directed patches).
+        if not as_undirected:
+            if self.is_multigraph:
+                Gd: Union[nx.DiGraph, nx.MultiDiGraph] = nx.MultiDiGraph()
+            else:
+                Gd = nx.DiGraph()
+
+            for node in self.nodes:
+                Gd.add_node(node)
+
+            if self.is_multigraph:
+                for u, v, key, attrs in self.edges:  # type: ignore[misc]
+                    Gd.add_edge(u, v, key=int(key), **dict(attrs))
+            else:
+                for u, v, attrs in self.edges:  # type: ignore[misc]
+                    Gd.add_edge(u, v, **dict(attrs))
+            return Gd
+
+        # Undirected export for undirected patches.
+        if not self.is_directed:
+            if self.is_multigraph:
+                Gu: Union[nx.Graph, nx.MultiGraph] = nx.MultiGraph()
+            else:
+                Gu = nx.Graph()
+
+            for node in self.nodes:
+                Gu.add_node(node)
+
+            if self.is_multigraph:
+                for u, v, key, attrs in self.edges:  # type: ignore[misc]
+                    Gu.add_edge(u, v, key=int(key), **dict(attrs))
+            else:
+                for u, v, attrs in self.edges:  # type: ignore[misc]
+                    Gu.add_edge(u, v, **dict(attrs))
+            return Gu
+
+        # Directed patch -> undirected view.
+        if undirected_mode == 'multigraph':
+            Gu2 = nx.MultiGraph()
+            for node in self.nodes:
+                Gu2.add_node(node)
+
+            if self.is_multigraph:
+                for u, v, key, attrs in self.edges:  # type: ignore[misc]
+                    data = dict(attrs)
+                    data['_pbc_tail'] = u
+                    data['_pbc_head'] = v
+                    data['_pbc_key'] = int(key)
+                    Gu2.add_edge(u, v, **data)
+            else:
+                for u, v, attrs in self.edges:  # type: ignore[misc]
+                    data = dict(attrs)
+                    data['_pbc_tail'] = u
+                    data['_pbc_head'] = v
+                    data['_pbc_key'] = None
+                    Gu2.add_edge(u, v, **data)
+            return Gu2
+
+        if undirected_mode != 'orig_edges':
+            raise ValueError('invalid undirected_mode')
+
+        Gu3 = nx.Graph()
         for node in self.nodes:
-            G.add_node(node)
+            Gu3.add_node(node)
 
-        if self._is_multigraph:
+        def _canon_pair(a: NodeInst, b: NodeInst) -> Tuple[NodeInst, NodeInst]:
+            uu, vv = stable_sorted([a, b])
+            return uu, vv
+
+        buckets: Dict[Tuple[NodeInst, NodeInst], List[Dict[str, Any]]] = {}
+        if self.is_multigraph:
             for u, v, key, attrs in self.edges:  # type: ignore[misc]
-                G.add_edge(u, v, key=int(key), **dict(attrs))
+                a, b = _canon_pair(u, v)
+                rec = {
+                    'tail': u,
+                    'head': v,
+                    'key': int(key),
+                    'attrs': dict(attrs),
+                }
+                buckets.setdefault((a, b), []).append(rec)
         else:
             for u, v, attrs in self.edges:  # type: ignore[misc]
-                G.add_edge(u, v, **dict(attrs))
-        return G
+                a, b = _canon_pair(u, v)
+                rec = {
+                    'tail': u,
+                    'head': v,
+                    'key': None,
+                    'attrs': dict(attrs),
+                }
+                buckets.setdefault((a, b), []).append(rec)
+
+        for (a, b), recs in buckets.items():
+            try:
+                recs.sort(key=lambda r: (r['tail'], r['head'], r['key']))
+            except TypeError:
+                recs.sort(
+                    key=lambda r: (
+                        fallback_key(r['tail']),
+                        fallback_key(r['head']),
+                        -1 if r['key'] is None else int(r['key']),
+                    )
+                )
+            Gu3.add_edge(a, b, orig_edges=recs)
+        return Gu3
 
 
 def lift_patch(
@@ -165,16 +294,16 @@ def lift_patch(
     node_order: Optional[Callable[[NodeInst], Any]] = None,
     edge_order: Optional[Callable[[Tuple[Any, ...]], Any]] = None,
 ) -> LiftPatch:
-    """Extract a finite undirected patch of the lifted graph around a seed.
+    """Extract a finite patch of the lifted graph around a seed.
 
     The traversal uses weak connectivity in the infinite lift: from an instance
     it considers both outgoing and incoming quotient edges.
 
     Notes:
-        The returned patch is undirected. When extracting from a directed
-        periodic graph, distinct directed edges can map to the same undirected
-        patch adjacency. In such cases, only one edge attribute snapshot is
-        retained deterministically.
+        The returned patch is directed if `G.is_undirected == False`, and
+        undirected otherwise. Use `LiftPatch.to_networkx(as_undirected=True, ...)`
+        to obtain undirected views of directed patches.
+
 
     Args:
         G: A periodic graph container.
@@ -262,76 +391,108 @@ def lift_patch(
     else:
         nodes = tuple(sorted(nodes_list, key=node_order))
 
+    patch_is_directed = not bool(G.is_undirected)
+
     # -----------------
-    # Edge inclusion (undirected, no explicit tvec)
+        # Edge inclusion (no explicit tvec)
     # -----------------
     edges_out: List[Union[PatchEdgeRec, PatchMultiEdgeRec]] = []
     if include_edges:
         included_set = set(visited)
 
-        candidates: List[Tuple[NodeInst, NodeInst, int, Dict[str, Any]]] = []
-        for inst in nodes:
-            for v, s2, k, attrs in G.neighbors_inst(inst, keys=True, data=True):
-                nb = (v, s2)
-                if nb not in included_set:
-                    continue
-                candidates.append((inst, nb, int(k), dict(attrs)))
-            for v, s2, k, attrs in G.in_neighbors_inst(inst, keys=True, data=True):
-                nb = (v, s2)
-                if nb not in included_set:
-                    continue
-                candidates.append((inst, nb, int(k), dict(attrs)))
+        if patch_is_directed:
+            records: List[Tuple[NodeInst, NodeInst, int, Any, Dict[str, Any]]] = []
+            for inst in nodes:
+                for v, s2, k, attrs in G.neighbors_inst(inst, keys=True, data=True):
+                    nb = (v, s2)
+                    if nb not in included_set:
+                        continue
+                    sel_key = (inst, nb, int(k))
+                    sc = edge_order(sel_key) if edge_order is not None else sel_key
+                    records.append((inst, nb, int(k), sc, dict(attrs)))
 
-        # Canonicalize endpoints to undirected pairs.
-        canon: List[Tuple[NodeInst, NodeInst, int, Dict[str, Any]]] = []
-        for a, b, k, attrs in candidates:
-            u_inst, v_inst = stable_sorted([a, b])
-            canon.append((u_inst, v_inst, k, attrs))
-
-        # Deduplicate reciprocal realizations deterministically.
-        best: Dict[Tuple[NodeInst, NodeInst, Optional[int]], Tuple[int, Dict[str, Any]]] = {}
-        for u_inst, v_inst, k, attrs in canon:
-            if G.is_multigraph:
-                eid: Tuple[NodeInst, NodeInst, Optional[int]] = (u_inst, v_inst, k)
-                sel_key = (u_inst, v_inst, k)
-            else:
-                eid = (u_inst, v_inst, None)
-                sel_key = (u_inst, v_inst, k)
-
-            if edge_order is not None:
-                score = edge_order(sel_key)
-            else:
-                score = sel_key
-
-            if eid not in best:
-                best[eid] = (score, attrs)
-                continue
-            prev_score, _prev_attrs = best[eid]
             try:
-                better = score < prev_score
+                records.sort(key=lambda r: (r[3], r[0], r[1], r[2]))
             except TypeError:
-                better = fallback_key(score) < fallback_key(prev_score)
-            if better:
-                best[eid] = (score, attrs)
+                records.sort(
+                    key=lambda r: (
+                        fallback_key(r[3]),
+                        fallback_key(r[0]),
+                        fallback_key(r[1]),
+                        r[2],
+                    )
+                )
 
-        if G.is_multigraph:
-            out_multi: List[Tuple[Any, Any, int, Any]] = []
-            for (u_inst, v_inst, kk), (sc, attrs) in best.items():
-                assert kk is not None
-                out_multi.append((u_inst, v_inst, int(kk), (sc, attrs)))
-            _try_sort_patch_edges(out_multi)
-            for u_inst, v_inst, kk, payload in out_multi:
-                _sc, attrs = payload
-                edges_out.append((u_inst, v_inst, int(kk), dict(attrs)))
+            if G.is_multigraph:
+                for u_inst, v_inst, kk, _sc, attrs in records:
+                    edges_out.append((u_inst, v_inst, int(kk), dict(attrs)))
+            else:
+                for u_inst, v_inst, _kk, _sc, attrs in records:
+                    edges_out.append((u_inst, v_inst, dict(attrs)))
+
         else:
-            out_simple: List[Tuple[Any, Any, int, Any]] = []
-            for (u_inst, v_inst, _), (sc, attrs) in best.items():
-                out_simple.append((u_inst, v_inst, 0, (sc, attrs)))
-            _try_sort_patch_edges(out_simple)
-            for u_inst, v_inst, _kk, payload in out_simple:
-                _sc, attrs = payload
-                edges_out.append((u_inst, v_inst, dict(attrs)))
+            candidates: List[Tuple[NodeInst, NodeInst, int, Dict[str, Any]]] = []
+            for inst in nodes:
+                for v, s2, k, attrs in G.neighbors_inst(inst, keys=True, data=True):
+                    nb = (v, s2)
+                    if nb not in included_set:
+                        continue
+                    candidates.append((inst, nb, int(k), dict(attrs)))
+                for v, s2, k, attrs in G.in_neighbors_inst(inst, keys=True, data=True):
+                    nb = (v, s2)
+                    if nb not in included_set:
+                        continue
+                    candidates.append((inst, nb, int(k), dict(attrs)))
 
+            # Canonicalize endpoints to undirected pairs.
+            canon: List[Tuple[NodeInst, NodeInst, int, Dict[str, Any]]] = []
+            for a, b, k, attrs in candidates:
+                u_inst, v_inst = stable_sorted([a, b])
+                canon.append((u_inst, v_inst, k, attrs))
+
+            # Deduplicate reciprocal realizations deterministically.
+            best: Dict[
+                Tuple[NodeInst, NodeInst, Optional[int]],
+                Tuple[Any, Dict[str, Any]],
+            ] = {}
+            for u_inst, v_inst, k, attrs in canon:
+                if G.is_multigraph:
+                    eid: Tuple[NodeInst, NodeInst, Optional[int]] = (u_inst, v_inst, k)
+                    sel_key = (u_inst, v_inst, k)
+                else:
+                    eid = (u_inst, v_inst, None)
+                    sel_key = (u_inst, v_inst, k)
+
+                score = edge_order(sel_key) if edge_order is not None else sel_key
+
+                if eid not in best:
+                    best[eid] = (score, attrs)
+                    continue
+                prev_score, _prev_attrs = best[eid]
+                try:
+                    better = score < prev_score
+                except TypeError:
+                    better = fallback_key(score) < fallback_key(prev_score)
+                if better:
+                    best[eid] = (score, attrs)
+
+            if G.is_multigraph:
+                out_multi: List[Tuple[Any, Any, int, Any]] = []
+                for (u_inst, v_inst, kk), (sc, attrs) in best.items():
+                    assert kk is not None
+                    out_multi.append((u_inst, v_inst, int(kk), (sc, attrs)))
+                _try_sort_patch_edges(out_multi)
+                for u_inst, v_inst, kk, payload in out_multi:
+                    _sc, attrs = payload
+                    edges_out.append((u_inst, v_inst, int(kk), dict(attrs)))
+            else:
+                out_simple: List[Tuple[Any, Any, int, Any]] = []
+                for (u_inst, v_inst, _), (sc, attrs) in best.items():
+                    out_simple.append((u_inst, v_inst, 0, (sc, attrs)))
+                _try_sort_patch_edges(out_simple)
+                for u_inst, v_inst, _kk, payload in out_simple:
+                    _sc, attrs = payload
+                    edges_out.append((u_inst, v_inst, dict(attrs)))
     return LiftPatch(
         nodes=nodes,
         edges=tuple(edges_out),
@@ -339,6 +500,7 @@ def lift_patch(
         radius=radius,
         box=eff_box,
         _is_multigraph=bool(G.is_multigraph),
+        _is_directed=patch_is_directed,
     )
 
 

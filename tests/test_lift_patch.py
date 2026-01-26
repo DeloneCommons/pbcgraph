@@ -14,6 +14,10 @@ def test_lift_patch_radius_uses_weak_connectivity():
     assert ('B', (0,)) in patch.nodes
     assert ('A', (0,)) in patch.nodes
     assert len(patch.edges) == 1
+    assert patch.is_directed
+    nxG = patch.to_networkx()
+    assert isinstance(nxG, nx.DiGraph)
+    assert (('A', (0,)), ('B', (0,))) in nxG.edges
 
 
 def test_lift_patch_box_rel_bounds_and_termination():
@@ -42,19 +46,40 @@ def test_lift_patch_multigraph_preserves_key_and_dedupes_reciprocals():
     assert isinstance(nxG, nx.MultiGraph)
 
 
-def test_lift_patch_directed_attr_collapse_is_deterministic():
+def test_lift_patch_directed_preserves_both_directions_and_exports():
     G = PeriodicDiGraph(dim=1)
-    # Note: edge keys are only unique per (u, v) pair in NetworkX, so these
-    # two directed edges can both receive key 0.
     G.add_edge('A', 'B', (0,), label='x')
     G.add_edge('B', 'A', (0,), label='y')
 
     patch = G.lift_patch(('A', (0,)), radius=1)
-    assert len(patch.edges) == 1
+    assert patch.is_directed
+    assert len(patch.edges) == 2
 
-    u, v, attrs = patch.edges[0]
-    assert {u, v} == {('A', (0,)), ('B', (0,))}
-    assert attrs['label'] == 'x'
+    nxD = patch.to_networkx()
+    assert isinstance(nxD, nx.DiGraph)
+    assert nxD.edges[('A', (0,)), ('B', (0,))]['label'] == 'x'
+    assert nxD.edges[('B', (0,)), ('A', (0,))]['label'] == 'y'
+
+    nxU = patch.to_networkx(as_undirected=True, undirected_mode='multigraph')
+    assert isinstance(nxU, nx.MultiGraph)
+    assert nxU.number_of_edges(('A', (0,)), ('B', (0,))) == 2
+
+    labels = []
+    for u, v, data in nxU.edges(data=True):
+        if {u, v} != {('A', (0,)), ('B', (0,))}:
+            continue
+        labels.append(data['label'])
+        assert data['_pbc_tail'] in {('A', (0,)), ('B', (0,))}
+        assert data['_pbc_head'] in {('A', (0,)), ('B', (0,))}
+    assert sorted(labels) == ['x', 'y']
+
+    nxC = patch.to_networkx(as_undirected=True, undirected_mode='orig_edges')
+    assert isinstance(nxC, nx.Graph)
+    data = nxC.edges[('A', (0,)), ('B', (0,))]
+    assert 'orig_edges' in data
+    assert len(data['orig_edges']) == 2
+    labels2 = sorted([rec['attrs']['label'] for rec in data['orig_edges']])
+    assert labels2 == ['x', 'y']
 
 
 def test_lift_patch_to_networkx_snapshots_edge_attrs():

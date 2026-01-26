@@ -770,15 +770,14 @@ class PeriodicDiGraph:
         node_order: Optional[Callable[[NodeInst], Any]] = None,
         edge_order: Optional[Callable[[Tuple[Any, ...]], Any]] = None,
     ) -> 'LiftPatch':
-        """Extract a finite undirected patch of the lifted graph.
+        """Extract a finite patch of the lifted graph.
 
         This is a thin wrapper over :func:`pbcgraph.alg.lift.lift_patch`.
 
         Notes:
-            The returned patch is undirected. When extracting from a directed
-            periodic graph, distinct directed edges can map to the same
-            undirected adjacency. In such cases, only one edge attribute
-            snapshot is retained deterministically.
+            For directed containers this patch is directed by default (exported
+            as `nx.DiGraph` / `nx.MultiDiGraph`). Use
+            `patch.to_networkx(as_undirected=True, ...)` for undirected views.
         """
         from pbcgraph.alg.lift import lift_patch as _lift_patch
 
