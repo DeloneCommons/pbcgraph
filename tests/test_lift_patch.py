@@ -69,16 +69,18 @@ def test_lift_patch_directed_preserves_both_directions_and_exports():
         if {u, v} != {('A', (0,)), ('B', (0,))}:
             continue
         labels.append(data['label'])
-        assert data['_pbc_tail'] in {('A', (0,)), ('B', (0,))}
-        assert data['_pbc_head'] in {('A', (0,)), ('B', (0,))}
+        meta = data['__pbcgraph__']
+        assert meta['tail'] in {('A', (0,)), ('B', (0,))}
+        assert meta['head'] in {('A', (0,)), ('B', (0,))}
     assert sorted(labels) == ['x', 'y']
 
     nxC = patch.to_networkx(as_undirected=True, undirected_mode='orig_edges')
     assert isinstance(nxC, nx.Graph)
     data = nxC.edges[('A', (0,)), ('B', (0,))]
-    assert 'orig_edges' in data
-    assert len(data['orig_edges']) == 2
-    labels2 = sorted([rec['attrs']['label'] for rec in data['orig_edges']])
+    assert '__pbcgraph__' in data
+    recs = data['__pbcgraph__']['orig_edges']
+    assert len(recs) == 2
+    labels2 = sorted([rec['attrs']['label'] for rec in recs])
     assert labels2 == ['x', 'y']
 
 

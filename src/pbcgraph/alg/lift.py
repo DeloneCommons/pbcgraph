@@ -152,6 +152,7 @@ class LiftPatch:
         """Whether the patch edges are directed."""
         return bool(self._is_directed)
 
+
     def to_networkx(
         self,
         *,
@@ -167,10 +168,11 @@ class LiftPatch:
               view:
                 - `undirected_mode='multigraph'` returns a MultiGraph where
                   each directed edge becomes a distinct undirected multiedge,
-                  with direction metadata in edge attributes.
+                  with direction metadata stored under the `__pbcgraph__`
+                  edge attribute.
                 - `undirected_mode='orig_edges'` returns a simple Graph where
                   each undirected adjacency stores `orig_edges=[...]`
-                  snapshots.
+                  snapshots under the `__pbcgraph__` edge attribute.
         """
         if as_undirected is None:
             as_undirected = not self.is_directed
@@ -243,16 +245,20 @@ def _lift_patch_to_networkx_directed_multigraph(
     if patch.is_multigraph:
         for u, v, key, attrs in patch.edges:  # type: ignore[misc]
             data = dict(attrs)
-            data['_pbc_tail'] = u
-            data['_pbc_head'] = v
-            data['_pbc_key'] = int(key)
+            data['__pbcgraph__'] = {
+                'tail': u,
+                'head': v,
+                'key': int(key),
+            }
             Gu.add_edge(u, v, **data)
     else:
         for u, v, attrs in patch.edges:  # type: ignore[misc]
             data = dict(attrs)
-            data['_pbc_tail'] = u
-            data['_pbc_head'] = v
-            data['_pbc_key'] = None
+            data['__pbcgraph__'] = {
+                'tail': u,
+                'head': v,
+                'key': None,
+            }
             Gu.add_edge(u, v, **data)
     return Gu
 
@@ -301,7 +307,7 @@ def _lift_patch_to_networkx_directed_orig_edges(
                     -1 if r['key'] is None else int(r['key']),
                 )
             )
-        Gu.add_edge(a, b, orig_edges=recs)
+        Gu.add_edge(a, b, __pbcgraph__={'orig_edges': recs})
     return Gu
 
 
