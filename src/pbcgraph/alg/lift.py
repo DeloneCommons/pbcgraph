@@ -178,110 +178,131 @@ class LiftPatch:
         if not self.is_directed and as_undirected is False:
             raise ValueError('cannot export an undirected patch as directed')
 
-        # Directed export (default for directed patches).
         if not as_undirected:
-            if self.is_multigraph:
-                Gd: Union[nx.DiGraph, nx.MultiDiGraph] = nx.MultiDiGraph()
-            else:
-                Gd = nx.DiGraph()
+            return _lift_patch_to_networkx_directed(self)
 
-            for node in self.nodes:
-                Gd.add_node(node)
-
-            if self.is_multigraph:
-                for u, v, key, attrs in self.edges:  # type: ignore[misc]
-                    Gd.add_edge(u, v, key=int(key), **dict(attrs))
-            else:
-                for u, v, attrs in self.edges:  # type: ignore[misc]
-                    Gd.add_edge(u, v, **dict(attrs))
-            return Gd
-
-        # Undirected export for undirected patches.
         if not self.is_directed:
-            if self.is_multigraph:
-                Gu: Union[nx.Graph, nx.MultiGraph] = nx.MultiGraph()
-            else:
-                Gu = nx.Graph()
+            return _lift_patch_to_networkx_undirected(self)
 
-            for node in self.nodes:
-                Gu.add_node(node)
-
-            if self.is_multigraph:
-                for u, v, key, attrs in self.edges:  # type: ignore[misc]
-                    Gu.add_edge(u, v, key=int(key), **dict(attrs))
-            else:
-                for u, v, attrs in self.edges:  # type: ignore[misc]
-                    Gu.add_edge(u, v, **dict(attrs))
-            return Gu
-
-        # Directed patch -> undirected view.
         if undirected_mode == 'multigraph':
-            Gu2 = nx.MultiGraph()
-            for node in self.nodes:
-                Gu2.add_node(node)
+            return _lift_patch_to_networkx_directed_multigraph(self)
 
-            if self.is_multigraph:
-                for u, v, key, attrs in self.edges:  # type: ignore[misc]
-                    data = dict(attrs)
-                    data['_pbc_tail'] = u
-                    data['_pbc_head'] = v
-                    data['_pbc_key'] = int(key)
-                    Gu2.add_edge(u, v, **data)
-            else:
-                for u, v, attrs in self.edges:  # type: ignore[misc]
-                    data = dict(attrs)
-                    data['_pbc_tail'] = u
-                    data['_pbc_head'] = v
-                    data['_pbc_key'] = None
-                    Gu2.add_edge(u, v, **data)
-            return Gu2
+        if undirected_mode == 'orig_edges':
+            return _lift_patch_to_networkx_directed_orig_edges(self)
 
-        if undirected_mode != 'orig_edges':
-            raise ValueError('invalid undirected_mode')
+        raise ValueError('invalid undirected_mode')
 
-        Gu3 = nx.Graph()
-        for node in self.nodes:
-            Gu3.add_node(node)
 
-        def _canon_pair(a: NodeInst, b: NodeInst) -> Tuple[NodeInst, NodeInst]:
-            uu, vv = stable_sorted([a, b])
-            return uu, vv
+def _lift_patch_to_networkx_directed(
+    patch: LiftPatch,
+) -> Union[nx.DiGraph, nx.MultiDiGraph]:
+    if patch.is_multigraph:
+        Gd: Union[nx.DiGraph, nx.MultiDiGraph] = nx.MultiDiGraph()
+    else:
+        Gd = nx.DiGraph()
 
-        buckets: Dict[Tuple[NodeInst, NodeInst], List[Dict[str, Any]]] = {}
-        if self.is_multigraph:
-            for u, v, key, attrs in self.edges:  # type: ignore[misc]
-                a, b = _canon_pair(u, v)
-                rec = {
-                    'tail': u,
-                    'head': v,
-                    'key': int(key),
-                    'attrs': dict(attrs),
-                }
-                buckets.setdefault((a, b), []).append(rec)
-        else:
-            for u, v, attrs in self.edges:  # type: ignore[misc]
-                a, b = _canon_pair(u, v)
-                rec = {
-                    'tail': u,
-                    'head': v,
-                    'key': None,
-                    'attrs': dict(attrs),
-                }
-                buckets.setdefault((a, b), []).append(rec)
+    for node in patch.nodes:
+        Gd.add_node(node)
 
-        for (a, b), recs in buckets.items():
-            try:
-                recs.sort(key=lambda r: (r['tail'], r['head'], r['key']))
-            except TypeError:
-                recs.sort(
-                    key=lambda r: (
-                        fallback_key(r['tail']),
-                        fallback_key(r['head']),
-                        -1 if r['key'] is None else int(r['key']),
-                    )
+    if patch.is_multigraph:
+        for u, v, key, attrs in patch.edges:  # type: ignore[misc]
+            Gd.add_edge(u, v, key=int(key), **dict(attrs))
+    else:
+        for u, v, attrs in patch.edges:  # type: ignore[misc]
+            Gd.add_edge(u, v, **dict(attrs))
+    return Gd
+
+
+def _lift_patch_to_networkx_undirected(
+    patch: LiftPatch,
+) -> Union[nx.Graph, nx.MultiGraph]:
+    if patch.is_multigraph:
+        Gu: Union[nx.Graph, nx.MultiGraph] = nx.MultiGraph()
+    else:
+        Gu = nx.Graph()
+
+    for node in patch.nodes:
+        Gu.add_node(node)
+
+    if patch.is_multigraph:
+        for u, v, key, attrs in patch.edges:  # type: ignore[misc]
+            Gu.add_edge(u, v, key=int(key), **dict(attrs))
+    else:
+        for u, v, attrs in patch.edges:  # type: ignore[misc]
+            Gu.add_edge(u, v, **dict(attrs))
+    return Gu
+
+
+def _lift_patch_to_networkx_directed_multigraph(
+    patch: LiftPatch,
+) -> nx.MultiGraph:
+    Gu = nx.MultiGraph()
+    for node in patch.nodes:
+        Gu.add_node(node)
+
+    if patch.is_multigraph:
+        for u, v, key, attrs in patch.edges:  # type: ignore[misc]
+            data = dict(attrs)
+            data['_pbc_tail'] = u
+            data['_pbc_head'] = v
+            data['_pbc_key'] = int(key)
+            Gu.add_edge(u, v, **data)
+    else:
+        for u, v, attrs in patch.edges:  # type: ignore[misc]
+            data = dict(attrs)
+            data['_pbc_tail'] = u
+            data['_pbc_head'] = v
+            data['_pbc_key'] = None
+            Gu.add_edge(u, v, **data)
+    return Gu
+
+
+def _lift_patch_to_networkx_directed_orig_edges(
+    patch: LiftPatch,
+) -> nx.Graph:
+    Gu = nx.Graph()
+    for node in patch.nodes:
+        Gu.add_node(node)
+
+    def _canon_pair(a: NodeInst, b: NodeInst) -> Tuple[NodeInst, NodeInst]:
+        uu, vv = stable_sorted([a, b])
+        return uu, vv
+
+    buckets: Dict[Tuple[NodeInst, NodeInst], List[Dict[str, Any]]] = {}
+    if patch.is_multigraph:
+        for u, v, key, attrs in patch.edges:  # type: ignore[misc]
+            a, b = _canon_pair(u, v)
+            rec = {
+                'tail': u,
+                'head': v,
+                'key': int(key),
+                'attrs': dict(attrs),
+            }
+            buckets.setdefault((a, b), []).append(rec)
+    else:
+        for u, v, attrs in patch.edges:  # type: ignore[misc]
+            a, b = _canon_pair(u, v)
+            rec = {
+                'tail': u,
+                'head': v,
+                'key': None,
+                'attrs': dict(attrs),
+            }
+            buckets.setdefault((a, b), []).append(rec)
+
+    for (a, b), recs in buckets.items():
+        try:
+            recs.sort(key=lambda r: (r['tail'], r['head'], r['key']))
+        except TypeError:
+            recs.sort(
+                key=lambda r: (
+                    fallback_key(r['tail']),
+                    fallback_key(r['head']),
+                    -1 if r['key'] is None else int(r['key']),
                 )
-            Gu3.add_edge(a, b, orig_edges=recs)
-        return Gu3
+            )
+        Gu.add_edge(a, b, orig_edges=recs)
+    return Gu
 
 
 def lift_patch(
