@@ -59,7 +59,9 @@ nav:
       - Roadmap: general/roadmap.md
   - Examples:
       - Quickstart: examples/quickstart.ipynb
-      - SNF and interpenetration: examples/snf_interpenetration.ipynb
+      - Lift patch: examples/lift_patch.ipynb
+      - Canonical lift: examples/canonical_lift.ipynb
+      - Smith Normal Form (SNF): examples/snf.ipynb
   - API:
       - Reference: api/index.md
       - Graphs: api/graphs.md

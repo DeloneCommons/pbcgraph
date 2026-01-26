@@ -74,6 +74,11 @@ Examples where direction is meaningful:
 If you only want to *label* an interaction (e.g., donor/acceptor role), but the relation should still be
 treated as symmetric for connectivity, an undirected container plus attributes is usually a better fit.
 
+!!! note
+    `lift_patch(...)` follows the container direction: patches extracted from
+    `PeriodicDiGraph` / `PeriodicMultiDiGraph` are directed by default (while
+    traversal still uses weak connectivity).
+
 ## `PeriodicMultiDiGraph`
 
 Use `PeriodicMultiDiGraph` when edges are directed **and** multiple distinct edges may exist for the same

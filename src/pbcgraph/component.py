@@ -14,6 +14,8 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from typing import (
+    Callable,
+    Any,
     Dict,
     FrozenSet,
     Hashable,
@@ -35,6 +37,7 @@ from pbcgraph.core.types import (
 )
 from pbcgraph.core.protocols import PeriodicDiGraphLike
 from pbcgraph.lattice.snf import SNFDecomposition, snf_decomposition
+from pbcgraph.alg.lift import CanonicalLift
 
 
 def _tvec_is_zero(t: TVec) -> bool:
@@ -89,17 +92,21 @@ class PeriodicComponent:
 
     # Private caches.
     _potentials: Dict[NodeId, TVec] = field(default_factory=dict, repr=False)
+    _tree_parent: Dict[NodeId, Tuple[NodeId, TVec, int]] = field(
+        default_factory=dict, repr=False
+    )
     _snf: Optional[SNFDecomposition] = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         # Compute potentials and lattice invariants eagerly for determinism.
         # The dataclass is frozen, so we must use `object.__setattr__` to
         # populate computed fields and caches during initialization.
-        pot = self._compute_potentials()
+        pot, parent = self._compute_potentials()
         gens = self._compute_generators(pot)
         dec = snf_decomposition(gens, self.graph.dim)
 
         object.__setattr__(self, '_potentials', pot)
+        object.__setattr__(self, '_tree_parent', parent)
         object.__setattr__(self, '_snf', dec)
         object.__setattr__(self, 'rank', dec.rank)
         object.__setattr__(self, 'translation_generators', tuple(gens))
@@ -260,11 +267,63 @@ class PeriodicComponent:
         }
 
     # -----------------
+    # Canonical lifts
+    # -----------------
+    def canonical_lift(
+        self,
+        *,
+        strand_key: Hashable | None = None,
+        seed: NodeInst | None = None,
+        anchor_shift: TVec | None = None,
+        placement: str = 'tree',
+        score: str = 'l1',
+        return_tree: bool = False,
+        node_order: Callable[[NodeId], Any] | None = None,
+        edge_order: Callable[[tuple], Any] | None = None,
+    ) -> 'CanonicalLift':
+        """Return a deterministic finite representation of a single strand.
+
+        This is a thin wrapper over :func:`pbcgraph.alg.lift.canonical_lift`.
+
+        Args:
+            strand_key: Optional explicit strand (coset) key.
+            seed: Optional seed instance used to determine `strand_key` and/or
+                default `anchor_shift`.
+            anchor_shift: Target anchor cell shift.
+            placement: Placement mode. v0.1.2 step4 implements `'tree'`,
+                `'best_anchor'`, and `'greedy_cut'`.
+            score: Score metric, `'l1'` or `'l2'`.
+            return_tree: If True, include spanning-tree edge records.
+            node_order: Optional ordering key for quotient node ids.
+            edge_order: Optional ordering key for periodic edges (reserved for
+                later placement modes).
+
+        Returns:
+            A :class:`~pbcgraph.alg.lift.CanonicalLift`.
+        """
+        from pbcgraph.alg.lift import canonical_lift as _canonical_lift
+
+        return _canonical_lift(
+            self,
+            strand_key=strand_key,
+            seed=seed,
+            anchor_shift=anchor_shift,
+            placement=placement,
+            score=score,
+            return_tree=return_tree,
+            node_order=node_order,
+            edge_order=edge_order,
+        )
+
+    # -----------------
     # Internal computations
     # -----------------
-    def _compute_potentials(self) -> Dict[NodeId, TVec]:
+    def _compute_potentials(
+        self,
+    ) -> Tuple[Dict[NodeId, TVec], Dict[NodeId, Tuple[NodeId, TVec, int]]]:
         dim = self.graph.dim
         pot: Dict[NodeId, TVec] = {self.root: zero_tvec(dim)}
+        parent: Dict[NodeId, Tuple[NodeId, TVec, int]] = {}
         q = deque([self.root])
 
         while q:
@@ -278,10 +337,11 @@ class PeriodicComponent:
                 if v in pot:
                     continue
                 pot[v] = add_tvec(pu, tvec)
+                parent[v] = (u, tvec, int(k))
                 q.append(v)
 
             # Incoming edges next (weak traversal).
-            for v, t_in, _k in self.graph.in_neighbors(
+            for v, t_in, k in self.graph.in_neighbors(
                 u, keys=True, data=False
             ):
                 if v not in self.nodes:
@@ -289,7 +349,9 @@ class PeriodicComponent:
                 if v in pot:
                     continue
                 pot[v] = sub_tvec(pu, t_in)
+                parent[v] = (u, neg_tvec(t_in), int(k))
                 q.append(v)
+
         if len(pot) != len(self.nodes):
             # This should never happen if component extraction is correct.
             missing = [u for u in self.nodes if u not in pot]
@@ -297,7 +359,7 @@ class PeriodicComponent:
                 'component potential assignment incomplete, '
                 f'missing: {missing}'
             )
-        return pot
+        return pot, parent
 
     def _compute_generators(self, pot: Dict[NodeId, TVec]) -> List[TVec]:
         gens: List[TVec] = []

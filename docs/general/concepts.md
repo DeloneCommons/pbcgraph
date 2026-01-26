@@ -108,3 +108,34 @@ The numerical representation depends on a unimodular change of coordinates (see 
 - `connectivity='weak'`: successors ∪ predecessors (default behavior for undirected use-cases)
 
 This is a quotient path; it does *not* compute an instance-aware shortest path in the infinite lift.
+
+## Finite patches of the lift
+
+Sometimes you want a **finite non-periodic graph** that represents a local
+fragment of the infinite lift (for visualization, local feature computation,
+or feeding to non-periodic algorithms).
+
+`lift_patch(...)` builds such a patch around a seed instance `(u, shift)` using
+either a BFS radius and/or a cell-index bounding box.
+
+Important details:
+
+- **Traversal is weakly connected** in the lift: from an instance it considers
+  both outgoing and incoming periodic edges (successors ∪ predecessors).
+  This makes patch extraction useful even for directed quotient graphs.
+
+- **Patch direction follows the container**:
+    - from undirected containers (`PeriodicGraph`, `PeriodicMultiGraph`), the
+      patch is undirected;
+    - from directed containers (`PeriodicDiGraph`, `PeriodicMultiDiGraph`), the
+      patch is directed.
+
+- **Undirected views of directed patches** are available via
+  `LiftPatch.to_networkx(as_undirected=True, undirected_mode=...)`:
+    - `undirected_mode='multigraph'`: one undirected multiedge per directed
+      edge; direction metadata is stored in `_pbc_tail`/`_pbc_head`.
+    - `undirected_mode='orig_edges'`: collapsed simple graph; each undirected
+      adjacency stores `orig_edges=[...]` snapshots.
+
+These export options avoid silent loss of information when you want an
+undirected representation for an inherently directed relation.
