@@ -1,34 +1,8 @@
-"""Periodic graph containers.
-
-pbcgraph represents a periodic graph by a finite quotient graph, where each
-directed quotient edge carries an integer translation vector in ``Z^d``.
-
-Internally, quotient edges are stored in a NetworkX
-:class:`networkx.MultiDiGraph`.
-However, pbcgraph exposes *two* containers families:
-
-- `PeriodicDiGraph` / `PeriodicGraph`: at most one edge per ``(u, v, tvec)``.
-- `PeriodicMultiDiGraph` / `PeriodicMultiGraph`: allow multiple edges per
-  ``(u, v, tvec)`` (distinguished by edge keys).
-
-Exports:
-    PeriodicDiGraph: Directed periodic graph on ``Z^d`` (unique per
-        ``(u, v, tvec)``).
-    PeriodicGraph: Undirected periodic graph implemented as a pair of directed
-        realizations per undirected edge (unique per undirected
-        ``{u, v, tvec}`` up to reversal).
-    PeriodicMultiDiGraph: Directed periodic multigraph on ``Z^d``.
-    PeriodicMultiGraph: Undirected periodic multigraph.
-
-Attributes:
-    _TVEC_ATTR: Internal edge-data key for translation vectors.
-    _USER_ATTRS: Internal edge-data key for the live user-attributes mapping.
-"""
+"""Directed periodic graph container."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
+from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -41,24 +15,19 @@ from typing import (
     Tuple,
 )
 
-from types import MappingProxyType
-
 import networkx as nx
 
 if TYPE_CHECKING:
-    from pbcgraph.component import PeriodicComponent
     from pbcgraph.alg.lift import LiftPatch
+    from pbcgraph.component import PeriodicComponent
 
 from pbcgraph.alg.components import components as _components
-
 from pbcgraph.core.ordering import (
+    fallback_key,
     stable_sorted,
     stable_tvec,
-    # stable_unique_sorted,
     try_sort_edges,
-    try_sort_neighbor_edges,
 )
-
 from pbcgraph.core.types import (
     EdgeKey,
     NodeId,
@@ -69,63 +38,14 @@ from pbcgraph.core.types import (
     sub_tvec,
     validate_tvec,
 )
-
-
-_TVEC_ATTR = '_tvec'
-_USER_ATTRS = '_attrs'
-
-
-def _ro(mapping: Dict[str, Any]) -> MappingProxyType:
-    """Return a read-only live view of a mapping."""
-    return MappingProxyType(mapping)
-
-
-def _validate_edge_key(key: EdgeKey) -> None:
-    """Validate an edge key.
-
-    Edge keys must be ints, but ``bool`` is rejected (even though it is a
-    subclass of ``int``).
-    """
-    if isinstance(key, bool) or not isinstance(key, int):
-        raise TypeError('edge key must be an int (bool is not allowed)')
-
-
-@dataclass(frozen=True)
-class _UKey:
-    """Private directed-edge key for undirected containers.
-
-    `PeriodicGraph` and `PeriodicMultiGraph` represent each undirected
-    edge as two directed realizations. When `u == v` (self-loop in the
-    quotient) these two realizations would collide in NetworkX if they
-    shared the same `(u, v, key)` triple.
-
-    `_UKey` splits the user-visible *base* key into two internal keys
-    distinguished by `dir` in {+1, -1}.
-
-    The public API always exposes the base key (an int).
-    """
-
-    base: int
-    dir: int
-
-    def __post_init__(self) -> None:
-        if self.dir not in (-1, 1):
-            raise ValueError('dir must be +1 or -1')
-
-
-def _base_key(k: object) -> int:
-    """Return the public base edge key for an internal key.
-
-    Args:
-        k: An internal key, either an int (directed containers) or a
-            `_UKey` (undirected containers).
-
-    Returns:
-        The user-visible base key as a Python int.
-    """
-    if isinstance(k, _UKey):
-        return int(k.base)
-    return int(k)
+from pbcgraph.graph.shared import (
+    _TVEC_ATTR,
+    _USER_ATTRS,
+    base_key as _base_key,
+    check_reserved_edge_attrs as _check_reserved_edge_attrs,
+    ro as _ro,
+    validate_edge_key as _validate_edge_key,
+)
 
 
 class PeriodicDiGraph:
@@ -362,6 +282,7 @@ class PeriodicDiGraph:
 
         tvec_norm = stable_tvec(tvec)
         user_attrs: Dict[str, Any] = dict(attrs)
+        _check_reserved_edge_attrs(user_attrs)
         self._g.add_edge(
             u, v, key=key, **{_TVEC_ATTR: tvec_norm, _USER_ATTRS: user_attrs}
         )
@@ -455,6 +376,7 @@ class PeriodicDiGraph:
         if data is None:
             raise KeyError((u, v, key))
         if attrs:
+            _check_reserved_edge_attrs(attrs)
             data[_USER_ATTRS].update(attrs)
             self.data_version += 1
 
@@ -490,15 +412,120 @@ class PeriodicDiGraph:
                 - `(u, v, tvec, attrs)`
                 - `(u, v, tvec, key, attrs)`
         """
-        records: List[Tuple[Any, Any, Tuple[int, ...], int, Any]] = []
-        for u, v, k, edata in self._g.edges(keys=True, data=True):
-            records.append(
-                (
-                    u, v,
-                    stable_tvec(edata[_TVEC_ATTR]),
-                    _base_key(k), edata[_USER_ATTRS]
-                )
+        # Streaming deterministic iteration:
+        # iterate u, then v, then edges on (u, v) ordered by (tvec, key).
+        for u in stable_sorted(list(self._g.nodes)):
+            adj = self._g.adj[u]
+            for v in stable_sorted(list(adj.keys())):
+                kd = adj[v]
+                items: List[Tuple[Tuple[int, ...], int, Any]] = []
+                for ik, ed in kd.items():
+                    items.append(
+                        (
+                            stable_tvec(ed[_TVEC_ATTR]),
+                            _base_key(ik),
+                            ed[_USER_ATTRS],
+                        )
+                    )
+                items.sort(key=lambda r: (r[0], r[1]))
+                for tv, k, attrs in items:
+                    if data:
+                        attrs_ro = _ro(attrs)
+                    if tvec:
+                        if keys:
+                            if data:
+                                yield u, v, tv, k, attrs_ro
+                            else:
+                                yield u, v, tv, k
+                        else:
+                            if data:
+                                yield u, v, tv, attrs_ro
+                            else:
+                                yield u, v, tv
+                    else:
+                        if keys:
+                            if data:
+                                yield u, v, k, attrs_ro
+                            else:
+                                yield u, v, k
+                        else:
+                            if data:
+                                yield u, v, attrs_ro
+                            else:
+                                yield u, v
+
+    def undirected_edges_unique(
+        self, keys: bool = False, data: bool = False, tvec: bool = False
+    ) -> Iterable:
+        """Iterate unique undirected edges in deterministic order.
+
+        This iterator is only defined for undirected containers
+        (`PeriodicGraph` / `PeriodicMultiGraph`). It returns each undirected
+        quotient edge exactly once, in a canonical orientation.
+
+        Canonicalization rules:
+            - For `u != v`, the returned endpoints satisfy `u <= v` under the
+              same ordering policy used elsewhere in pbcgraph.
+            - For quotient self-loops with nonzero translation, the returned
+              translation vector is canonicalized to `min(tvec, -tvec)`.
+
+        Args:
+            keys: If True, include the public base edge key.
+            data: If True, include the read-only user attribute mapping.
+            tvec: If True, include the translation vector.
+
+        Returns:
+            An iterable of:
+                - `(u, v)`
+                - `(u, v, attrs)`
+                - `(u, v, key)`
+                - `(u, v, tvec)`
+                - `(u, v, tvec, key)`
+                - `(u, v, key, attrs)`
+                - `(u, v, tvec, attrs)`
+                - `(u, v, tvec, key, attrs)`
+
+        Raises:
+            TypeError: If called on a directed container.
+        """
+        if not self.is_undirected:
+            raise TypeError(
+                'undirected_edges_unique is only available for '
+                'undirected containers'
             )
+
+        records: List[Tuple[Any, Any, Tuple[int, ...], int, Any]] = []
+        seen: set[Tuple[Any, Any, Tuple[int, ...], int]] = set()
+
+        for u, v, k, edata in self._g.edges(keys=True, data=True):
+            base = int(_base_key(k))
+            tv = stable_tvec(edata[_TVEC_ATTR])
+
+            if u == v:
+                tv_neg = stable_tvec(neg_tvec(tv))
+                tv_abs = tv if tv <= tv_neg else tv_neg
+                ident = (u, u, tv_abs, base)
+                if ident in seen:
+                    continue
+                seen.add(ident)
+                records.append((u, u, tv_abs, base, edata[_USER_ATTRS]))
+                continue
+
+            try:
+                leq = u <= v  # type: ignore[operator]
+            except TypeError:
+                leq = fallback_key(u) <= fallback_key(v)
+
+            if leq:
+                a, b, tv_use = u, v, tv
+            else:
+                a, b, tv_use = v, u, stable_tvec(neg_tvec(tv))
+
+            ident = (a, b, tv_use, base)
+            if ident in seen:
+                continue
+            seen.add(ident)
+            records.append((a, b, tv_use, base, edata[_USER_ATTRS]))
 
         try_sort_edges(records)
 
@@ -546,34 +573,32 @@ class PeriodicDiGraph:
         if not self._g.has_node(u):
             raise KeyError(u)
 
-        records: List[Tuple[Any, Tuple[int, ...], int, Any]] = []
         adj = self._g.adj[u]
-        for v in adj:
+        for v in stable_sorted(list(adj.keys())):
             kd = adj[v]
-            for k in kd:
-                ed = kd[k]
-                records.append(
+            items: List[Tuple[Tuple[int, ...], int, Any]] = []
+            for ik, ed in kd.items():
+                items.append(
                     (
-                        v, stable_tvec(ed[_TVEC_ATTR]),
-                        _base_key(k), ed[_USER_ATTRS]
+                        stable_tvec(ed[_TVEC_ATTR]),
+                        _base_key(ik),
+                        ed[_USER_ATTRS],
                     )
                 )
-
-        try_sort_neighbor_edges(records)
-
-        for v, tv, k, attrs in records:
-            if data:
-                attrs_ro = _ro(attrs)
-            if keys:
+            items.sort(key=lambda r: (r[0], r[1]))
+            for tv, k, attrs in items:
                 if data:
-                    yield v, tv, k, attrs_ro
+                    attrs_ro = _ro(attrs)
+                if keys:
+                    if data:
+                        yield v, tv, k, attrs_ro
+                    else:
+                        yield v, tv, k
                 else:
-                    yield v, tv, k
-            else:
-                if data:
-                    yield v, tv, attrs_ro
-                else:
-                    yield v, tv
+                    if data:
+                        yield v, tv, attrs_ro
+                    else:
+                        yield v, tv
 
     def in_neighbors(
         self, u: NodeId, keys: bool = False, data: bool = False
@@ -593,34 +618,32 @@ class PeriodicDiGraph:
         if not self._g.has_node(u):
             raise KeyError(u)
 
-        records: List[Tuple[Any, Tuple[int, ...], int, Any]] = []
         pred_adj = self._g.pred[u]
-        for v in pred_adj:
+        for v in stable_sorted(list(pred_adj.keys())):
             kd = pred_adj[v]
-            for k in kd:
-                ed = kd[k]
-                records.append(
+            items: List[Tuple[Tuple[int, ...], int, Any]] = []
+            for ik, ed in kd.items():
+                items.append(
                     (
-                        v, stable_tvec(ed[_TVEC_ATTR]),
-                        _base_key(k), ed[_USER_ATTRS]
+                        stable_tvec(ed[_TVEC_ATTR]),
+                        _base_key(ik),
+                        ed[_USER_ATTRS],
                     )
                 )
-
-        try_sort_neighbor_edges(records)
-
-        for v, tv, k, attrs in records:
-            if data:
-                attrs_ro = _ro(attrs)
-            if keys:
+            items.sort(key=lambda r: (r[0], r[1]))
+            for tv, k, attrs in items:
                 if data:
-                    yield v, tv, k, attrs_ro
+                    attrs_ro = _ro(attrs)
+                if keys:
+                    if data:
+                        yield v, tv, k, attrs_ro
+                    else:
+                        yield v, tv, k
                 else:
-                    yield v, tv, k
-            else:
-                if data:
-                    yield v, tv, attrs_ro
-                else:
-                    yield v, tv
+                    if data:
+                        yield v, tv, attrs_ro
+                    else:
+                        yield v, tv
 
     def neighbors_inst(
         self, node_inst: NodeInst, keys: bool = False, data: bool = False
@@ -791,361 +814,4 @@ class PeriodicDiGraph:
             max_nodes=max_nodes,
             node_order=node_order,
             edge_order=edge_order,
-        )
-
-
-class PeriodicMultiDiGraph(PeriodicDiGraph):
-    """Directed periodic multigraph on ``Z^d``.
-
-    Unlike `PeriodicDiGraph`, this container allows multiple edges for the same
-    directed triple ``(u, v, tvec)``. Such parallel edges are distinguished by
-    their edge keys.
-    """
-
-    @property
-    def is_multigraph(self) -> bool:
-        """Whether this container allows multiple edges per `(u, v, tvec)`."""
-        return True
-
-    def add_edge(
-        self,
-        u: NodeId,
-        v: NodeId,
-        tvec: TVec,
-        key: Optional[EdgeKey] = None,
-        **attrs: Any,
-    ) -> EdgeKey:
-        """Add a directed periodic edge (parallel edges allowed)."""
-        return self._add_edge_impl(u, v, tvec, key=key, attrs=dict(attrs))
-
-
-class PeriodicGraph(PeriodicDiGraph):
-    """Undirected periodic graph.
-
-    Internally, an undirected periodic edge is represented by two directed
-    realizations:
-
-    - ``u -> v`` with translation ``tvec``
-    - ``v -> u`` with translation ``-tvec``
-
-    Both realizations share the same underlying user-attributes dict.
-    The public API returns read-only live views of that mapping.
-
-    **Important:** a crystallographically common pattern is a quotient
-    self-loop with non-zero translation (``u == v`` and ``tvec != 0``),
-    representing a bond to a periodic image of the same motif.
-
-    NetworkX identifies multiedges by ``(u, v, key)``. For self-loops,
-    the two directed realizations would collide if they shared the same key.
-
-    To avoid this, `PeriodicGraph` stores directed realizations using a private
-    internal key type `_UKey(base, dir)`, where `base` is the user-visible
-    integer key and `dir` is `+1` / `-1`. The public API always exposes
-    the base key.
-
-    In addition to the undirected-invariant pairing, this container enforces
-    an invariant analogous to `PeriodicDiGraph`:
-
-    *For any undirected triple ``{u, v, tvec}`` (up to reversal), at most one
-    edge exists.*
-
-    To allow multiple contacts for the same motif pair and translation, use
-    `PeriodicMultiGraph`.
-
-    Notes:
-        `PeriodicGraph` is a subclass of `PeriodicDiGraph`, but restricts some
-        operations (for example, directed connectivity modes in algorithms).
-    """
-
-    @property
-    def is_undirected(self) -> bool:
-        """Whether this container should be treated as undirected
-        by algorithms."""
-        return True
-
-    def edges(
-        self, keys: bool = False, data: bool = False, tvec: bool = False
-    ) -> Iterable:
-        """Iterate directed realizations in deterministic order.
-
-        This iterator yields *directed realizations* of undirected edges.
-
-        Note:
-            For self-loop periodic edges (``u == v`` and ``tvec != 0``), the
-            two directed realizations share the same ``(u, v, key)`` triple and
-            differ only by the translation vector. If `keys=True` but
-            `tvec=False`, this may yield duplicate ``(u, u, key)`` records. Use
-            `tvec=True` to disambiguate.
-
-        See `PeriodicDiGraph.edges` for the record formats.
-        """
-        return super().edges(keys=keys, data=data, tvec=tvec)
-
-    def _internal_keys_for_base(
-        self, u: NodeId, v: NodeId, key: EdgeKey
-    ) -> List[object]:
-        """Return internal keys on (u -> v) whose public base key
-        equals `key`."""
-        kd = self._g.get_edge_data(u, v) or {}
-        out: List[object] = []
-        for ik in kd:
-            if isinstance(ik, _UKey):
-                if int(ik.base) == int(key):
-                    out.append(ik)
-            else:
-                if int(ik) == int(key):
-                    out.append(ik)
-        return out
-
-    def _choose_internal_key(
-        self, u: NodeId, v: NodeId, key: EdgeKey
-    ) -> object:
-        """Choose a deterministic internal key for accessing
-        shared attrs/tvec."""
-        keys = self._internal_keys_for_base(u, v, key)
-        if not keys:
-            raise KeyError((u, v, key))
-        # Prefer the "forward" realization when present.
-        for ik in keys:
-            if isinstance(ik, _UKey) and ik.dir == 1:
-                return ik
-        # Otherwise choose a deterministic order.
-        return sorted(
-            keys,
-            key=lambda x: (
-                0 if isinstance(x, _UKey) else 1,
-                getattr(x, 'dir', 0),
-                repr(x),
-            ),
-        )[0]
-
-    def _has_undirected_base(self, u: NodeId, v: NodeId, key: EdgeKey) -> bool:
-        """Return True if an undirected edge with base key exists
-        between u and v."""
-        if u != v:
-            return (
-                len(self._internal_keys_for_base(u, v, key)) == 1 and
-                len(self._internal_keys_for_base(v, u, key)) == 1
-            )
-        # Self-loop: both realizations live on (u -> u).
-        return len(self._internal_keys_for_base(u, u, key)) == 2
-
-    def add_edge(
-        self,
-        u: NodeId,
-        v: NodeId,
-        tvec: TVec,
-        key: Optional[EdgeKey] = None,
-        **attrs: Any,
-    ) -> EdgeKey:
-        validate_tvec(tvec, self._dim)
-
-        existing = self._key_for_tvec(u, v, tvec)
-        existing_rev = self._key_for_tvec(v, u, neg_tvec(tvec))
-        if existing is not None or existing_rev is not None:
-            raise ValueError(
-                'undirected edge already exists for {u, v, tvec}: '
-                f'({u!r}, {v!r}, {tuple(tvec)!r}); '
-                f'key={existing if existing is not None else existing_rev!r}'
-            )
-
-        return self._add_undirected_impl(
-            u, v, tvec, key=key, attrs=dict(attrs)
-        )
-
-    def _add_undirected_impl(
-        self,
-        u: NodeId,
-        v: NodeId,
-        tvec: TVec,
-        *,
-        key: Optional[EdgeKey],
-        attrs: Dict[str, Any],
-    ) -> EdgeKey:
-        """Implementation for adding an undirected edge (no tvec checks)."""
-        validate_tvec(tvec, self._dim)
-        if not self._g.has_node(u):
-            self.add_node(u)
-        if not self._g.has_node(v):
-            self.add_node(v)
-
-        if key is None:
-            key = self._alloc_key_undirected(u, v)
-        else:
-            _validate_edge_key(key)
-
-        # Disallow overwriting an existing base key in either direction.
-        if (
-            self._internal_keys_for_base(u, v, key)
-            or self._internal_keys_for_base(v, u, key)
-        ):
-            raise KeyError((u, v, key))
-
-        tvec_norm = stable_tvec(tvec)
-        user_attrs: Dict[str, Any] = dict(attrs)
-
-        k_fwd = _UKey(int(key), 1)
-        k_rev = _UKey(int(key), -1)
-
-        self._g.add_edge(
-            u,
-            v,
-            key=k_fwd,
-            **{_TVEC_ATTR: tvec_norm, _USER_ATTRS: user_attrs},
-        )
-        self._g.add_edge(
-            v,
-            u,
-            key=k_rev,
-            **{
-                _TVEC_ATTR: stable_tvec(neg_tvec(tvec)),
-                _USER_ATTRS: user_attrs,
-            },
-        )
-        self.structural_version += 1
-        return int(key)
-
-    def has_edge(
-        self, u: NodeId, v: NodeId, key: Optional[EdgeKey] = None
-    ) -> bool:
-        if key is None:
-            if u != v:
-                return self._g.has_edge(u, v) and self._g.has_edge(v, u)
-            kd = self._g.get_edge_data(u, u) or {}
-            return len(kd) >= 2
-        return self._has_undirected_base(u, v, key)
-
-    def edge_tvec(self, u: NodeId, v: NodeId, key: EdgeKey) -> TVec:
-        ik = self._choose_internal_key(u, v, key)
-        data = self._g.get_edge_data(u, v, ik)
-        if data is None:
-            raise KeyError((u, v, key))
-        return stable_tvec(data[_TVEC_ATTR])
-
-    def get_edge_data(
-        self, u: NodeId, v: NodeId, key: EdgeKey, default: Any = None
-    ) -> Any:
-        try:
-            ik = self._choose_internal_key(u, v, key)
-        except KeyError:
-            return default
-        data = self._g.get_edge_data(u, v, ik)
-        if data is None:
-            return default
-        return _ro(data[_USER_ATTRS])
-
-    def set_edge_attrs(
-        self, u: NodeId, v: NodeId, key: EdgeKey, **attrs: Any
-    ) -> None:
-        if not self._has_undirected_base(u, v, key):
-            raise KeyError((u, v, key))
-        if not attrs:
-            return
-        ik = self._choose_internal_key(u, v, key)
-        data = self._g.get_edge_data(u, v, ik)
-        if data is None:
-            raise KeyError((u, v, key))
-        data[_USER_ATTRS].update(attrs)
-        self.data_version += 1
-
-    def remove_edge(self, u: NodeId, v: NodeId, key: EdgeKey) -> None:
-        triples = set()
-        for a, b in ((u, v), (v, u)):
-            kd = self._g.get_edge_data(a, b) or {}
-            for ik in kd:
-                if _base_key(ik) == int(key):
-                    triples.add((a, b, ik))
-        if len(triples) != 2:
-            raise KeyError((u, v, key))
-        for a, b, ik in triples:
-            self._g.remove_edge(a, b, key=ik)
-        self.structural_version += 1
-
-    def check_invariants(self, *, strict: bool = False) -> Dict[str, Any]:
-        """Check undirected pairing invariants.
-
-        Returns a structured report and optionally raises on errors.
-
-        Invariants checked:
-            - For every directed realization there is a paired reverse one.
-            - Translation vectors satisfy t(v,u,rev) = -t(u,v,fwd).
-            - The user-attributes dict is the *same object* for paired
-              realizations.
-
-        Args:
-            strict: If True, raise ValueError on the first violation.
-
-        Returns:
-            A dict with keys: `ok`, `errors`, `n_edges`.
-        """
-        errors: List[str] = []
-
-        for u, v, ik, ed in self._g.edges(keys=True, data=True):
-            base = _base_key(ik)
-            if isinstance(ik, _UKey):
-                rev_key: object = _UKey(base, -ik.dir)
-            else:
-                rev_key = ik
-            rev = self._g.get_edge_data(v, u, rev_key)
-            if rev is None:
-                msg = (
-                    'missing reverse edge for '
-                    f'({u!r}, {v!r}, base={base!r}, ik={ik!r})'
-                )
-                if strict:
-                    raise ValueError(msg)
-                errors.append(msg)
-                continue
-            tv = stable_tvec(ed[_TVEC_ATTR])
-            tv_rev = stable_tvec(rev[_TVEC_ATTR])
-            if tv_rev != stable_tvec(neg_tvec(tv)):
-                msg = (
-                    'translation mismatch for paired edges: '
-                    f'({u!r}->{v!r}, base={base!r}) has {tv!r}, '
-                    f'({v!r}->{u!r}, base={base!r}) has {tv_rev!r}'
-                )
-                if strict:
-                    raise ValueError(msg)
-                errors.append(msg)
-            if ed[_USER_ATTRS] is not rev[_USER_ATTRS]:
-                msg = (
-                    'attribute mapping is not shared for paired edges: '
-                    f'({u!r},{v!r}, base={base!r})'
-                )
-                if strict:
-                    raise ValueError(msg)
-                errors.append(msg)
-
-        return {
-            'ok': len(errors) == 0,
-            'errors': errors,
-            'n_edges': int(self._g.number_of_edges()),
-        }
-
-
-class PeriodicMultiGraph(PeriodicGraph):
-    """Undirected periodic multigraph.
-
-    Unlike `PeriodicGraph`, this container allows multiple undirected edges for
-    the same motif pair and translation (i.e. multiple edges for the same
-    undirected ``{u, v, tvec}`` up to reversal). Parallel edges are
-    distinguished by their edge keys.
-    """
-
-    @property
-    def is_multigraph(self) -> bool:
-        """Whether this container allows multiple edges per `(u, v, tvec)`."""
-        return True
-
-    def add_edge(
-        self,
-        u: NodeId,
-        v: NodeId,
-        tvec: TVec,
-        key: Optional[EdgeKey] = None,
-        **attrs: Any,
-    ) -> EdgeKey:
-        """Add an undirected periodic edge (parallel edges allowed)."""
-        return self._add_undirected_impl(
-            u, v, tvec, key=key, attrs=dict(attrs)
         )

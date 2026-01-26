@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import (
     Callable,
     Any,
@@ -20,12 +21,12 @@ from typing import (
     FrozenSet,
     Hashable,
     List,
+    Mapping,
     Optional,
     Tuple,
 )
 
 from pbcgraph.core.exceptions import StaleComponentError
-from pbcgraph.core.ordering import fallback_key
 from pbcgraph.core.types import (
     NodeId,
     NodeInst,
@@ -127,6 +128,31 @@ class PeriodicComponent:
             raise StaleComponentError(
                 'PeriodicComponent is stale: graph structure has changed'
             )
+
+    @property
+    def snf(self) -> SNFDecomposition:
+        """Smith normal form decomposition for the translation subgroup.
+
+        Raises:
+            StaleComponentError: If the parent graph has changed structurally.
+        """
+        self._require_fresh()
+        dec = self._snf
+        assert dec is not None
+        return dec
+
+    def tree_parent_map(self) -> Mapping[NodeId, Tuple[NodeId, TVec, int]]:
+        """Read-only spanning-tree parent mapping.
+
+        The mapping records, for each non-root node `child`, a tuple
+        `(parent, tvec, key)` describing the tree edge used to assign the
+        node potential.
+
+        Raises:
+            StaleComponentError: If the parent graph has changed structurally.
+        """
+        self._require_fresh()
+        return MappingProxyType(self._tree_parent)
 
     # -----------------
     # Potential
@@ -376,36 +402,12 @@ class PeriodicComponent:
                 gens.append(g)
             return gens
 
-        def _node_leq(a: NodeId, b: NodeId) -> bool:
-            try:
-                return a <= b  # type: ignore[operator]
-            except TypeError:
-                return fallback_key(a) <= fallback_key(b)
-
-        seen = set()
-        for u, v, t, k in self.graph.edges(keys=True, data=False, tvec=True):
+        for u, v, t, k in self.graph.undirected_edges_unique(
+            keys=True, data=False, tvec=True
+        ):
             if u not in self.nodes or v not in self.nodes:
                 continue
-
-            tv = tuple(int(x) for x in t)
-            if u == v:
-                tv_abs = min(tv, neg_tvec(tv))
-                ident = (u, u, tv_abs, int(k))
-                if ident in seen:
-                    continue
-                seen.add(ident)
-                g = tv_abs
-            else:
-                if _node_leq(u, v):
-                    a, b, tv_use = u, v, tv
-                else:
-                    a, b, tv_use = v, u, neg_tvec(tv)
-                ident = (a, b, tv_use, int(k))
-                if ident in seen:
-                    continue
-                seen.add(ident)
-                g = sub_tvec(add_tvec(pot[a], tv_use), pot[b])
-
+            g = sub_tvec(add_tvec(pot[u], t), pot[v])
             if _tvec_is_zero(g):
                 continue
             gens.append(g)

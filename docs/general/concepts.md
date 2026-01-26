@@ -133,9 +133,19 @@ Important details:
 - **Undirected views of directed patches** are available via
   `LiftPatch.to_networkx(as_undirected=True, undirected_mode=...)`:
     - `undirected_mode='multigraph'`: one undirected multiedge per directed
-      edge; direction metadata is stored in `_pbc_tail`/`_pbc_head`.
+      edge; direction metadata is stored under the `__pbcgraph__` edge
+      attribute.
     - `undirected_mode='orig_edges'`: collapsed simple graph; each undirected
-      adjacency stores `orig_edges=[...]` snapshots.
+      adjacency stores `orig_edges=[...]` snapshots under the `__pbcgraph__`
+      edge attribute.
+
+
+
+**NetworkX export metadata key.** Direction/origin information is stored under a single
+reserved edge attribute named `__pbcgraph__`. In code, prefer using the constant
+`PBC_META_KEY` (exported from `pbcgraph`) instead of hardcoding the string.
+The library reserves this key for its own metadata; attempting to set it as a user
+edge attribute will raise an error.
 
 These export options avoid silent loss of information when you want an
 undirected representation for an inherently directed relation.
