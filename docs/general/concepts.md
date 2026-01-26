@@ -108,3 +108,21 @@ The numerical representation depends on a unimodular change of coordinates (see 
 - `connectivity='weak'`: successors ∪ predecessors (default behavior for undirected use-cases)
 
 This is a quotient path; it does *not* compute an instance-aware shortest path in the infinite lift.
+
+## Finite patches of the lift
+
+Sometimes you want a **finite non-periodic graph** that represents a local
+fragment of the infinite lift (for visualization, local feature computation,
+or feeding to non-periodic algorithms).
+
+`PeriodicDiGraph.lift_patch(...)` builds such a patch around a seed instance
+`(u, shift)` using either a BFS radius and/or a cell-index bounding box.
+The resulting patch is always **undirected**.
+
+!!! note
+    When extracting a patch from a **directed** periodic graph, different
+    directed quotient edges can collapse to the same undirected patch edge.
+    In such cases, only one edge-attribute snapshot can be retained. If you
+    need direction-aware edge properties in a lift, treat this as a limitation
+    of v0.1.x and prefer storing symmetric information in undirected
+    containers.

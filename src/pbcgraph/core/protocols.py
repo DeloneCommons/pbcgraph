@@ -22,6 +22,7 @@ class PeriodicDiGraphLike(Protocol):
     structural_version: int
     data_version: int
     is_undirected: bool
+    is_multigraph: bool
 
     # Nodes
     def has_node(self, u: NodeId) -> bool:
@@ -49,6 +50,17 @@ class PeriodicDiGraphLike(Protocol):
 
     def edges(
         self, keys: bool = False, data: bool = False, tvec: bool = False
+    ) -> Iterable:
+        ...
+
+    # Lifted neighborhoods
+    def neighbors_inst(
+        self, node_inst: tuple[NodeId, TVec], keys: bool = False, data: bool = False
+    ) -> Iterable:
+        ...
+
+    def in_neighbors_inst(
+        self, node_inst: tuple[NodeId, TVec], keys: bool = False, data: bool = False
     ) -> Iterable:
         ...
 

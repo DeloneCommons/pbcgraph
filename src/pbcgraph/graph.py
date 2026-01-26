@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     Iterable,
     Iterator,
@@ -46,6 +47,7 @@ import networkx as nx
 
 if TYPE_CHECKING:
     from pbcgraph.component import PeriodicComponent
+    from pbcgraph.alg.lift import LiftPatch
 
 from pbcgraph.alg.components import components as _components
 
@@ -168,6 +170,11 @@ class PeriodicDiGraph:
     def is_undirected(self) -> bool:
         """Whether this container should be treated as undirected
         by algorithms."""
+        return False
+
+    @property
+    def is_multigraph(self) -> bool:
+        """Whether this container allows multiple edges per `(u, v, tvec)`."""
         return False
 
     def __len__(self) -> int:
@@ -748,6 +755,45 @@ class PeriodicDiGraph:
         """Return connected components as `PeriodicComponent` objects."""
         return _components(self)
 
+    # -----------------
+    # Finite lifts
+    # -----------------
+    def lift_patch(
+        self,
+        seed: NodeInst,
+        *,
+        radius: Optional[int] = None,
+        box: Optional[Tuple[Tuple[int, int], ...]] = None,
+        box_rel: Optional[Tuple[Tuple[int, int], ...]] = None,
+        include_edges: bool = True,
+        max_nodes: Optional[int] = None,
+        node_order: Optional[Callable[[NodeInst], Any]] = None,
+        edge_order: Optional[Callable[[Tuple[Any, ...]], Any]] = None,
+    ) -> 'LiftPatch':
+        """Extract a finite undirected patch of the lifted graph.
+
+        This is a thin wrapper over :func:`pbcgraph.alg.lift.lift_patch`.
+
+        Notes:
+            The returned patch is undirected. When extracting from a directed
+            periodic graph, distinct directed edges can map to the same
+            undirected adjacency. In such cases, only one edge attribute
+            snapshot is retained deterministically.
+        """
+        from pbcgraph.alg.lift import lift_patch as _lift_patch
+
+        return _lift_patch(
+            self,
+            seed,
+            radius=radius,
+            box=box,
+            box_rel=box_rel,
+            include_edges=include_edges,
+            max_nodes=max_nodes,
+            node_order=node_order,
+            edge_order=edge_order,
+        )
+
 
 class PeriodicMultiDiGraph(PeriodicDiGraph):
     """Directed periodic multigraph on ``Z^d``.
@@ -756,6 +802,11 @@ class PeriodicMultiDiGraph(PeriodicDiGraph):
     directed triple ``(u, v, tvec)``. Such parallel edges are distinguished by
     their edge keys.
     """
+
+    @property
+    def is_multigraph(self) -> bool:
+        """Whether this container allows multiple edges per `(u, v, tvec)`."""
+        return True
 
     def add_edge(
         self,
@@ -1081,6 +1132,11 @@ class PeriodicMultiGraph(PeriodicGraph):
     undirected ``{u, v, tvec}`` up to reversal). Parallel edges are
     distinguished by their edge keys.
     """
+
+    @property
+    def is_multigraph(self) -> bool:
+        """Whether this container allows multiple edges per `(u, v, tvec)`."""
+        return True
 
     def add_edge(
         self,

@@ -7,3 +7,7 @@ class PBCGraphError(Exception):
 
 class StaleComponentError(PBCGraphError):
     """Raised when a PeriodicComponent is used after its graph has changed."""
+
+
+class LiftPatchError(PBCGraphError):
+    """Raised when finite patch extraction fails."""
