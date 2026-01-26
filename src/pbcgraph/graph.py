@@ -57,7 +57,6 @@ from pbcgraph.core.ordering import (
     stable_tvec,
     # stable_unique_sorted,
     try_sort_edges,
-    try_sort_neighbor_edges,
 )
 
 from pbcgraph.core.types import (

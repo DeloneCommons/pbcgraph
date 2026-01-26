@@ -14,8 +14,6 @@ from typing import (
     Any,
     Callable,
     Dict,
-    FrozenSet,
-    Hashable,
     Iterator,
     List,
     Literal,
@@ -28,16 +26,12 @@ from typing import (
 import networkx as nx
 
 from pbcgraph.core.constants import PBC_META_KEY
-from pbcgraph.core.exceptions import CanonicalLiftError, LiftPatchError
+from pbcgraph.core.exceptions import LiftPatchError
 from pbcgraph.core.ordering import fallback_key, stable_sorted
 from pbcgraph.core.protocols import PeriodicDiGraphLike
 from pbcgraph.core.types import (
-    NodeId,
     NodeInst,
     TVec,
-    add_tvec,
-    sub_tvec,
-    zero_tvec,
     validate_tvec,
 )
 
@@ -146,7 +140,6 @@ class LiftPatch:
     def is_directed(self) -> bool:
         """Whether the patch edges are directed."""
         return bool(self._is_directed)
-
 
     def to_networkx(
         self,
@@ -542,5 +535,3 @@ def lift_patch(
         _is_multigraph=bool(G.is_multigraph),
         _is_directed=patch_is_directed,
     )
-
-

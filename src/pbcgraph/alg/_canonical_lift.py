@@ -15,7 +15,6 @@ from typing import (
     Dict,
     FrozenSet,
     Hashable,
-    Iterator,
     List,
     Literal,
     Optional,
@@ -24,11 +23,8 @@ from typing import (
     Union,
 )
 
-import networkx as nx
-
-from pbcgraph.core.exceptions import CanonicalLiftError, LiftPatchError
+from pbcgraph.core.exceptions import CanonicalLiftError
 from pbcgraph.core.ordering import fallback_key, stable_sorted
-from pbcgraph.core.protocols import PeriodicDiGraphLike
 from pbcgraph.core.types import (
     NodeId,
     NodeInst,
