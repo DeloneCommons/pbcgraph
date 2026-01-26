@@ -15,6 +15,7 @@ from typing import (
     Dict,
     FrozenSet,
     Hashable,
+    Iterator,
     List,
     Literal,
     Optional,
@@ -23,8 +24,11 @@ from typing import (
     Union,
 )
 
-from pbcgraph.core.exceptions import CanonicalLiftError
+import networkx as nx
+
+from pbcgraph.core.exceptions import CanonicalLiftError, LiftPatchError
 from pbcgraph.core.ordering import fallback_key, stable_sorted
+from pbcgraph.core.protocols import PeriodicDiGraphLike
 from pbcgraph.core.types import (
     NodeId,
     NodeInst,
@@ -359,9 +363,7 @@ def canonical_lift(
 
     pot = {u: component.potential(u) for u in component.nodes}
 
-    snf = component._snf
-    if snf is None:
-        raise CanonicalLiftError('component has no SNF decomposition')
+    snf = component.snf
 
     if score not in ('l1', 'l2'):
         raise CanonicalLiftError("score must be 'l1' or 'l2'")
@@ -487,11 +489,10 @@ def canonical_lift(
     tree_edges: Optional[Tuple[TreeEdgeRec, ...]] = None
     if return_tree:
         recs: List[TreeEdgeRec] = []
-        children = _sorted_nodes_by_key(
-            list(component._tree_parent.keys()), node_order
-        )
+        parent_map = component.tree_parent_map()
+        children = _sorted_nodes_by_key(list(parent_map.keys()), node_order)
         for child in children:
-            parent, _t, k = component._tree_parent[child]
+            parent, _t, k = parent_map[child]
             tvec = sub_tvec(abs_shift[child], abs_shift[parent])
             recs.append((parent, child, tvec, int(k)))
         tree_edges = tuple(recs)

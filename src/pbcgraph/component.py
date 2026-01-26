@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import (
     Callable,
     Any,
@@ -20,6 +21,7 @@ from typing import (
     FrozenSet,
     Hashable,
     List,
+    Mapping,
     Optional,
     Tuple,
 )
@@ -126,6 +128,31 @@ class PeriodicComponent:
             raise StaleComponentError(
                 'PeriodicComponent is stale: graph structure has changed'
             )
+
+    @property
+    def snf(self) -> SNFDecomposition:
+        """Smith normal form decomposition for the translation subgroup.
+
+        Raises:
+            StaleComponentError: If the parent graph has changed structurally.
+        """
+        self._require_fresh()
+        dec = self._snf
+        assert dec is not None
+        return dec
+
+    def tree_parent_map(self) -> Mapping[NodeId, Tuple[NodeId, TVec, int]]:
+        """Read-only spanning-tree parent mapping.
+
+        The mapping records, for each non-root node `child`, a tuple
+        `(parent, tvec, key)` describing the tree edge used to assign the
+        node potential.
+
+        Raises:
+            StaleComponentError: If the parent graph has changed structurally.
+        """
+        self._require_fresh()
+        return MappingProxyType(self._tree_parent)
 
     # -----------------
     # Potential

@@ -10,6 +10,7 @@ This project follows a lightweight "keep a log" style.
 - Refactored `LiftPatch.to_networkx(...)` into small helpers (no behavior change).
 - `LiftPatch.to_networkx(as_undirected=True, ...)` now stores direction and orig-edge snapshots under a single reserved edge attribute `__pbcgraph__` to avoid collisions with user attributes (minor breaking change for code that read `_pbc_*` or `orig_edges`).
 - Split `pbcgraph.alg.lift` into `_lift_patch` and `_canonical_lift` implementation modules, keeping the public API unchanged.
+- Added read-only accessors `PeriodicComponent.snf` and `PeriodicComponent.tree_parent_map()` and updated `canonical_lift(...)` to avoid touching private component caches.
 
 
 ## 0.1.2 - Finite lifts and canonical lifts
