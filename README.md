@@ -27,15 +27,13 @@ The API may still evolve, but the library is already useful for research code an
 
 ## Install
 
-Requires Python 3.10+.
-
-Once the project is published on PyPI:
+Requires Python 3.10+. Latest stable version is usually published on PyPI:
 
 ```bash
 python -m pip install pbcgraph
 ```
 
-Until then (or for the latest `dev` branch), install from GitHub:
+To install the latest version (or for the latest `dev` branch), install from GitHub:
 
 ```bash
 python -m pip install git+https://github.com/IvanChernyshov/pbcgraph.git
