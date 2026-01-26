@@ -31,5 +31,3 @@ class PeriodicMultiDiGraph(PeriodicDiGraph):
     ) -> EdgeKey:
         """Add a directed periodic edge (parallel edges allowed)."""
         return self._add_edge_impl(u, v, tvec, key=key, attrs=dict(attrs))
-
-

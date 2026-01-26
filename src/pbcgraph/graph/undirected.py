@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional
 
 from pbcgraph.core.ordering import stable_tvec
 from pbcgraph.core.types import EdgeKey, NodeId, TVec, neg_tvec, validate_tvec
@@ -319,5 +319,3 @@ class PeriodicGraph(PeriodicDiGraph):
             'errors': errors,
             'n_edges': int(self._g.number_of_edges()),
         }
-
-

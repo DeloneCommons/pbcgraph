@@ -1,7 +1,12 @@
 import networkx as nx
 import pytest
 
-from pbcgraph import PBC_META_KEY, PeriodicDiGraph, PeriodicGraph, PeriodicMultiGraph
+from pbcgraph import (
+    PBC_META_KEY,
+    PeriodicDiGraph,
+    PeriodicGraph,
+    PeriodicMultiGraph,
+)
 from pbcgraph.core.exceptions import LiftPatchError
 
 

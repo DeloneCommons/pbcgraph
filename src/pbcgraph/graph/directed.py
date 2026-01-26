@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -814,5 +815,3 @@ class PeriodicDiGraph:
             node_order=node_order,
             edge_order=edge_order,
         )
-
-

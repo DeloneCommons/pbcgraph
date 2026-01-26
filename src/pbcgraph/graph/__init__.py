@@ -8,9 +8,11 @@ Internally, quotient edges are stored in a NetworkX
 
 Two container families are provided:
 
-- :class:`~pbcgraph.graph.PeriodicDiGraph` / :class:`~pbcgraph.graph.PeriodicGraph`:
+- :class:`~pbcgraph.graph.PeriodicDiGraph` /
+  :class:`~pbcgraph.graph.PeriodicGraph`:
   at most one edge per ``(u, v, tvec)``.
-- :class:`~pbcgraph.graph.PeriodicMultiDiGraph` / :class:`~pbcgraph.graph.PeriodicMultiGraph`:
+- :class:`~pbcgraph.graph.PeriodicMultiDiGraph` /
+  :class:`~pbcgraph.graph.PeriodicMultiGraph`:
   allow multiple edges per ``(u, v, tvec)`` (distinguished by edge keys).
 """
 
