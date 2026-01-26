@@ -27,6 +27,7 @@ from typing import (
 
 import networkx as nx
 
+from pbcgraph.core.constants import PBC_META_KEY
 from pbcgraph.core.exceptions import CanonicalLiftError, LiftPatchError
 from pbcgraph.core.ordering import fallback_key, stable_sorted
 from pbcgraph.core.protocols import PeriodicDiGraphLike
@@ -239,7 +240,7 @@ def _lift_patch_to_networkx_directed_multigraph(
     if patch.is_multigraph:
         for u, v, key, attrs in patch.edges:  # type: ignore[misc]
             data = dict(attrs)
-            data['__pbcgraph__'] = {
+            data[PBC_META_KEY] = {
                 'tail': u,
                 'head': v,
                 'key': int(key),
@@ -248,7 +249,7 @@ def _lift_patch_to_networkx_directed_multigraph(
     else:
         for u, v, attrs in patch.edges:  # type: ignore[misc]
             data = dict(attrs)
-            data['__pbcgraph__'] = {
+            data[PBC_META_KEY] = {
                 'tail': u,
                 'head': v,
                 'key': None,
@@ -301,7 +302,7 @@ def _lift_patch_to_networkx_directed_orig_edges(
                     -1 if r['key'] is None else int(r['key']),
                 )
             )
-        Gu.add_edge(a, b, __pbcgraph__={'orig_edges': recs})
+        Gu.add_edge(a, b, **{PBC_META_KEY: {'orig_edges': recs}})
     return Gu
 
 

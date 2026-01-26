@@ -533,7 +533,6 @@ class PeriodicDiGraph:
                             else:
                                 yield u, v
 
-
     def undirected_edges_unique(
         self, keys: bool = False, data: bool = False, tvec: bool = False
     ) -> Iterable:
@@ -990,14 +989,11 @@ class PeriodicGraph(PeriodicDiGraph):
         """Return internal keys on (u -> v) whose public base key
         equals `key`."""
         kd = self._g.get_edge_data(u, v) or {}
+        base = int(key)
         out: List[object] = []
         for ik in kd:
-            if isinstance(ik, _UKey):
-                if int(ik.base) == int(key):
-                    out.append(ik)
-            else:
-                if int(ik) == int(key):
-                    out.append(ik)
+            if _base_key(ik) == base:
+                out.append(ik)
         return out
 
     def _choose_internal_key(

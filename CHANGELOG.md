@@ -12,6 +12,7 @@ This project follows a lightweight "keep a log" style.
 - Split `pbcgraph.alg.lift` into `_lift_patch` and `_canonical_lift` implementation modules, keeping the public API unchanged.
 - Added read-only accessors `PeriodicComponent.snf` and `PeriodicComponent.tree_parent_map()` and updated `canonical_lift(...)` to avoid touching private component caches.
 - Refactored `edges()`, `neighbors()`, and `in_neighbors()` to use streaming deterministic iteration (avoid building a full edge list just to sort it).
+- General refactors: introduce an internal constant `PBC_META_KEY` for NetworkX export metadata, simplify internal key filtering in undirected containers, and apply small style cleanups.
 
 
 ## 0.1.2 - Finite lifts and canonical lifts
