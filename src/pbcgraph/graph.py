@@ -491,43 +491,47 @@ class PeriodicDiGraph:
                 - `(u, v, tvec, attrs)`
                 - `(u, v, tvec, key, attrs)`
         """
-        records: List[Tuple[Any, Any, Tuple[int, ...], int, Any]] = []
-        for u, v, k, edata in self._g.edges(keys=True, data=True):
-            records.append(
-                (
-                    u, v,
-                    stable_tvec(edata[_TVEC_ATTR]),
-                    _base_key(k), edata[_USER_ATTRS]
-                )
-            )
-
-        try_sort_edges(records)
-
-        for u, v, tv, k, attrs in records:
-            if data:
-                attrs_ro = _ro(attrs)
-            if tvec:
-                if keys:
+        # Streaming deterministic iteration:
+        # iterate u, then v, then edges on (u, v) ordered by (tvec, key).
+        for u in stable_sorted(list(self._g.nodes)):
+            adj = self._g.adj[u]
+            for v in stable_sorted(list(adj.keys())):
+                kd = adj[v]
+                items: List[Tuple[Tuple[int, ...], int, Any]] = []
+                for ik, ed in kd.items():
+                    items.append(
+                        (
+                            stable_tvec(ed[_TVEC_ATTR]),
+                            _base_key(ik),
+                            ed[_USER_ATTRS],
+                        )
+                    )
+                items.sort(key=lambda r: (r[0], r[1]))
+                for tv, k, attrs in items:
                     if data:
-                        yield u, v, tv, k, attrs_ro
+                        attrs_ro = _ro(attrs)
+                    if tvec:
+                        if keys:
+                            if data:
+                                yield u, v, tv, k, attrs_ro
+                            else:
+                                yield u, v, tv, k
+                        else:
+                            if data:
+                                yield u, v, tv, attrs_ro
+                            else:
+                                yield u, v, tv
                     else:
-                        yield u, v, tv, k
-                else:
-                    if data:
-                        yield u, v, tv, attrs_ro
-                    else:
-                        yield u, v, tv
-            else:
-                if keys:
-                    if data:
-                        yield u, v, k, attrs_ro
-                    else:
-                        yield u, v, k
-                else:
-                    if data:
-                        yield u, v, attrs_ro
-                    else:
-                        yield u, v
+                        if keys:
+                            if data:
+                                yield u, v, k, attrs_ro
+                            else:
+                                yield u, v, k
+                        else:
+                            if data:
+                                yield u, v, attrs_ro
+                            else:
+                                yield u, v
 
 
     def undirected_edges_unique(
@@ -649,34 +653,32 @@ class PeriodicDiGraph:
         if not self._g.has_node(u):
             raise KeyError(u)
 
-        records: List[Tuple[Any, Tuple[int, ...], int, Any]] = []
         adj = self._g.adj[u]
-        for v in adj:
+        for v in stable_sorted(list(adj.keys())):
             kd = adj[v]
-            for k in kd:
-                ed = kd[k]
-                records.append(
+            items: List[Tuple[Tuple[int, ...], int, Any]] = []
+            for ik, ed in kd.items():
+                items.append(
                     (
-                        v, stable_tvec(ed[_TVEC_ATTR]),
-                        _base_key(k), ed[_USER_ATTRS]
+                        stable_tvec(ed[_TVEC_ATTR]),
+                        _base_key(ik),
+                        ed[_USER_ATTRS],
                     )
                 )
-
-        try_sort_neighbor_edges(records)
-
-        for v, tv, k, attrs in records:
-            if data:
-                attrs_ro = _ro(attrs)
-            if keys:
+            items.sort(key=lambda r: (r[0], r[1]))
+            for tv, k, attrs in items:
                 if data:
-                    yield v, tv, k, attrs_ro
+                    attrs_ro = _ro(attrs)
+                if keys:
+                    if data:
+                        yield v, tv, k, attrs_ro
+                    else:
+                        yield v, tv, k
                 else:
-                    yield v, tv, k
-            else:
-                if data:
-                    yield v, tv, attrs_ro
-                else:
-                    yield v, tv
+                    if data:
+                        yield v, tv, attrs_ro
+                    else:
+                        yield v, tv
 
     def in_neighbors(
         self, u: NodeId, keys: bool = False, data: bool = False
@@ -696,34 +698,32 @@ class PeriodicDiGraph:
         if not self._g.has_node(u):
             raise KeyError(u)
 
-        records: List[Tuple[Any, Tuple[int, ...], int, Any]] = []
         pred_adj = self._g.pred[u]
-        for v in pred_adj:
+        for v in stable_sorted(list(pred_adj.keys())):
             kd = pred_adj[v]
-            for k in kd:
-                ed = kd[k]
-                records.append(
+            items: List[Tuple[Tuple[int, ...], int, Any]] = []
+            for ik, ed in kd.items():
+                items.append(
                     (
-                        v, stable_tvec(ed[_TVEC_ATTR]),
-                        _base_key(k), ed[_USER_ATTRS]
+                        stable_tvec(ed[_TVEC_ATTR]),
+                        _base_key(ik),
+                        ed[_USER_ATTRS],
                     )
                 )
-
-        try_sort_neighbor_edges(records)
-
-        for v, tv, k, attrs in records:
-            if data:
-                attrs_ro = _ro(attrs)
-            if keys:
+            items.sort(key=lambda r: (r[0], r[1]))
+            for tv, k, attrs in items:
                 if data:
-                    yield v, tv, k, attrs_ro
+                    attrs_ro = _ro(attrs)
+                if keys:
+                    if data:
+                        yield v, tv, k, attrs_ro
+                    else:
+                        yield v, tv, k
                 else:
-                    yield v, tv, k
-            else:
-                if data:
-                    yield v, tv, attrs_ro
-                else:
-                    yield v, tv
+                    if data:
+                        yield v, tv, attrs_ro
+                    else:
+                        yield v, tv
 
     def neighbors_inst(
         self, node_inst: NodeInst, keys: bool = False, data: bool = False
