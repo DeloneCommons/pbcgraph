@@ -57,10 +57,10 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/IvanChernyshov/pbcgraph"
-Documentation = "https://IvanChernyshov.github.io/pbcgraph"
-Repository = "https://github.com/IvanChernyshov/pbcgraph"
-Issues = "https://github.com/IvanChernyshov/pbcgraph/issues"
+Homepage = "https://github.com/DeloneCommons/pbcgraph"
+Documentation = "https://delonecommons.github.io/pbcgraph"
+Repository = "https://github.com/DeloneCommons/pbcgraph"
+Issues = "https://github.com/DeloneCommons/pbcgraph/issues"
 
 [tool.hatch.version]
 path = "src/pbcgraph/__about__.py"

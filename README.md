@@ -1,7 +1,7 @@
 # pbcgraph
 
-[![CI](https://github.com/IvanChernyshov/pbcgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/IvanChernyshov/pbcgraph/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://IvanChernyshov.github.io/pbcgraph/)
+[![CI](https://github.com/DeloneCommons/pbcgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/DeloneCommons/pbcgraph/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://delonecommons.github.io/pbcgraph/)
 [![PyPI](https://img.shields.io/pypi/v/pbcgraph.svg)](https://pypi.org/project/pbcgraph/)
 [![Python versions](https://img.shields.io/pypi/pyversions/pbcgraph.svg)](https://pypi.org/project/pbcgraph/)
 [![License: LGPL v3](https://img.shields.io/badge/license-LGPLv3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
@@ -36,7 +36,7 @@ python -m pip install pbcgraph
 To install the latest version (or for the latest `dev` branch), install from GitHub:
 
 ```bash
-python -m pip install git+https://github.com/IvanChernyshov/pbcgraph.git
+python -m pip install git+https://github.com/DeloneCommons/pbcgraph.git
 ```
 
 For local development:
@@ -88,7 +88,7 @@ assert len(lift.instances) == len(comp.nodes)
 
 ## Documentation
 
-- Online docs (GitHub Pages): https://IvanChernyshov.github.io/pbcgraph/
+- Online docs (GitHub Pages): https://delonecommons.github.io/pbcgraph/
 
 Local docs build:
 

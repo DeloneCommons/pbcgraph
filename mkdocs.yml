@@ -1,8 +1,8 @@
 site_name: pbcgraph
 site_description: Translation-labeled periodic graphs on Z^d with component lattice invariants.
-site_url: https://IvanChernyshov.github.io/pbcgraph/
-repo_url: https://github.com/IvanChernyshov/pbcgraph
-repo_name: IvanChernyshov/pbcgraph
+site_url: https://delonecommons.github.io/pbcgraph/
+repo_url: https://github.com/DeloneCommons/pbcgraph
+repo_name: DeloneCommons/pbcgraph
 
 theme:
   name: material
